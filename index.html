@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#151C24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painting">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png">
+<title>Painting</title>
+<style>
+  :root{
+    --ground:#151C24; --surface:#1E2831; --line:#2C3945;
+    --ink:#E6EBEF; --muted:#6C7A87; --done:#4FA88B;
+    --today:#E0A458; --danger:#C4634F; --radius:10px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px; line-height:1.4;
+    padding:env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 24px);
+    max-width:560px; margin:0 auto; min-height:100vh;
+  }
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--today);outline-offset:2px}
+  [hidden]{display:none!important}
+
+  .bar{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:12px; padding:22px 2px 16px; border-bottom:1px solid var(--line);
+  }
+  .eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .title{font-size:22px;font-weight:500;letter-spacing:-.02em;margin-top:2px;overflow-wrap:anywhere}
+  .sub{font-size:13px;letter-spacing:.06em;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:2px}
+  .actions{display:flex;gap:18px;flex:none}
+  .bar-btn{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:4px 0;white-space:nowrap}
+  .bar-btn[aria-pressed="true"]{color:var(--today)}
+  .bar-btn.primary{color:var(--done)}
+  .bar-btn:disabled{color:var(--line);cursor:default}
+  .back{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:4px 0;text-align:left}
+
+  .rows{list-style:none;margin:0;padding:0}
+  .row{background:var(--surface);border-radius:var(--radius);margin-top:12px;display:flex;align-items:center;gap:12px;padding:0}
+  .row-main{flex:1;text-align:left;padding:14px;min-width:0}
+  .row-name{font-size:17px;font-weight:500;letter-spacing:-.01em;overflow-wrap:anywhere}
+  .row-sub{font-size:12px;letter-spacing:.06em;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:6px}
+  .track{height:6px;border-radius:3px;background:var(--line);margin-top:10px;overflow:hidden}
+  .fill{height:100%;background:var(--done);border-radius:3px;transition:width .18s ease}
+  .fill[data-complete="true"]{background:var(--today)}
+  .delete{color:var(--danger);font-size:22px;line-height:1;padding:14px 14px 14px 0}
+  .chev{color:var(--muted);padding-right:14px;font-size:18px}
+
+  .stage{background:var(--surface);border-radius:var(--radius);margin-top:12px;padding:12px 14px 14px}
+  .stage-top{display:flex;align-items:center;gap:10px}
+  .stage-name{flex:1;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .stage-count{font-variant-numeric:tabular-nums;font-size:20px;font-weight:200;letter-spacing:-.02em}
+  .push{color:var(--done);font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:4px 0 4px 12px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{
+    width:38px;height:38px;border-radius:6px;background:var(--line);
+    font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;transition:background .12s ease;
+  }
+  .stage[data-empty="true"] .stage-name,.stage[data-empty="true"] .stage-count{opacity:.4}
+
+  .empty{padding:56px 4px;text-align:center}
+  .empty p{color:var(--muted);font-size:15px;margin:0 0 18px}
+  .empty button,.ghost{border:1px solid var(--line);border-radius:var(--radius);padding:12px 20px;font-size:15px;background:var(--surface)}
+
+  .field{margin-top:28px}
+  .field label{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .field input{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);color:var(--ink);padding:14px;font-size:18px}
+  .field input::placeholder{color:var(--muted)}
+  .hint{margin-top:12px;font-size:13px;color:var(--muted)}
+  .note{margin-top:24px;font-size:12px;color:var(--muted);text-align:center}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<main id="armies-view">
+  <div class="bar">
+    <div>
+      <div class="eyebrow">Painting</div>
+      <div class="sub" id="grand-total"></div>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="armies-edit" aria-pressed="false">Edit</button>
+      <button class="bar-btn" id="armies-add">Add</button>
+    </div>
+  </div>
+  <ul class="rows" id="armies-rows"></ul>
+  <div class="empty" id="armies-empty" hidden>
+    <p>No armies yet.</p>
+    <button id="armies-add-empty">Add your first army</button>
+  </div>
+  <p class="note" id="note" hidden>Storage is blocked here, so changes won't be saved between sessions.</p>
+</main>
+
+<main id="units-view" hidden>
+  <div class="bar">
+    <div>
+      <button class="back" id="units-back">&larr; Armies</button>
+      <div class="title" id="army-title"></div>
+      <div class="sub" id="army-sub"></div>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="units-edit" aria-pressed="false">Edit</button>
+      <button class="bar-btn" id="units-add">Add</button>
+    </div>
+  </div>
+  <ul class="rows" id="units-rows"></ul>
+  <div class="empty" id="units-empty" hidden>
+    <p>No units in this army yet.</p>
+    <button id="units-add-empty">Add a unit</button>
+  </div>
+</main>
+
+<main id="unit-view" hidden>
+  <div class="bar">
+    <div>
+      <button class="back" id="unit-back">&larr; <span id="unit-back-label"></span></button>
+      <div class="title" id="unit-title"></div>
+      <div class="sub" id="unit-sub"></div>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="unit-edit" aria-pressed="false">Undo</button>
+    </div>
+  </div>
+  <div id="stages"></div>
+  <p class="hint" id="unit-hint"></p>
+</main>
+
+<section id="add-army-view" hidden>
+  <div class="bar">
+    <button class="bar-btn" id="army-cancel">Cancel</button>
+    <button class="bar-btn primary" id="army-save" disabled>Save</button>
+  </div>
+  <div class="field">
+    <label for="army-name">Army name</label>
+    <input id="army-name" type="text" placeholder="Ultramarines" maxlength="30" autocomplete="off" enterkeyhint="done">
+  </div>
+</section>
+
+<section id="add-unit-view" hidden>
+  <div class="bar">
+    <button class="bar-btn" id="unit-cancel">Cancel</button>
+    <button class="bar-btn primary" id="unit-save" disabled>Save</button>
+  </div>
+  <div class="field">
+    <label for="unit-name">Unit name</label>
+    <input id="unit-name" type="text" placeholder="Intercessor Squad" maxlength="30" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="unit-count">Number of models</label>
+    <input id="unit-count" type="number" inputmode="numeric" min="1" max="60" value="10" enterkeyhint="done">
+    <p class="hint">All models start at Not started. You can't change the count later, so split big blocks into separate units if you paint them in batches.</p>
+  </div>
+</section>
+
+<script>
+(function(){
+  "use strict";
+
+  var KEY = "painting.v1";
+  var STAGES = ["Not started","Assembled","Primed","Base colours","Details","Based"];
+  var LAST = STAGES.length - 1;
+  var SEED = ["Ultramarines","Death Guard","World Eaters","T'au Empire","Orks"];
+
+  var memory = null, storageOK = true;
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){ storageOK = false; return memory || seed(); }
+    return seed();
+  }
+  function seed(){
+    return SEED.map(function(n,i){ return { id:"a"+i, name:n, units:[] }; });
+  }
+  function save(){
+    memory = armies;
+    try{ localStorage.setItem(KEY, JSON.stringify(armies)); }
+    catch(e){ storageOK = false; }
+  }
+
+  var armies = load();
+  var armyId = null, unitId = null;
+  var editArmies = false, editUnits = false, undoMode = false;
+
+  function army(){ return armies.filter(function(a){ return a.id === armyId; })[0]; }
+  function unit(){
+    var a = army();
+    return a ? a.units.filter(function(u){ return u.id === unitId; })[0] : null;
+  }
+  function stats(units){
+    var total = 0, based = 0, steps = 0;
+    units.forEach(function(u){
+      total += u.models.length;
+      u.models.forEach(function(s){
+        steps += s;
+        if(s === LAST) based++;
+      });
+    });
+    return { total:total, based:based, pct: total ? steps/(total*LAST) : 0 };
+  }
+  function el(id){ return document.getElementById(id); }
+
+  var views = ["armies-view","units-view","unit-view","add-army-view","add-unit-view"];
+  function show(name){
+    views.forEach(function(v){ el(v).hidden = (v !== name); });
+    window.scrollTo(0,0);
+  }
+
+  function progressRow(name, sub, pct, complete, onOpen, onDelete){
+    var li = document.createElement("li");
+    li.className = "row";
+
+    var main = document.createElement("button");
+    main.className = "row-main";
+
+    var n = document.createElement("div");
+    n.className = "row-name";
+    n.textContent = name;
+    main.appendChild(n);
+
+    var s = document.createElement("div");
+    s.className = "row-sub";
+    s.textContent = sub;
+    main.appendChild(s);
+
+    var track = document.createElement("div");
+    track.className = "track";
+    var fill = document.createElement("div");
+    fill.className = "fill";
+    fill.style.width = Math.round(pct*100) + "%";
+    if(complete) fill.dataset.complete = "true";
+    track.appendChild(fill);
+    main.appendChild(track);
+
+    main.addEventListener("click", onOpen);
+    li.appendChild(main);
+
+    if(onDelete){
+      var d = document.createElement("button");
+      d.className = "delete";
+      d.textContent = "\u00D7";
+      d.setAttribute("aria-label","Delete " + name);
+      d.addEventListener("click", onDelete);
+      li.appendChild(d);
+    }else{
+      var c = document.createElement("span");
+      c.className = "chev";
+      c.textContent = "\u203A";
+      li.appendChild(c);
+    }
+    return li;
+  }
+
+  function renderArmies(){
+    var rows = el("armies-rows");
+    rows.textContent = "";
+    el("armies-empty").hidden = armies.length > 0;
+    el("armies-edit").hidden = armies.length === 0;
+
+    var all = [];
+    armies.forEach(function(a){ all = all.concat(a.units); });
+    var g = stats(all);
+    el("grand-total").textContent = g.total
+      ? g.based + " of " + g.total + " models based"
+      : "No models yet";
+
+    armies.forEach(function(a){
+      var st = stats(a.units);
+      var sub = st.total
+        ? st.based + " of " + st.total + " based \u00B7 " + a.units.length + (a.units.length === 1 ? " unit" : " units")
+        : "No units";
+      rows.appendChild(progressRow(
+        a.name, sub, st.pct, st.total > 0 && st.based === st.total,
+        function(){ armyId = a.id; editUnits = false; setEdit("units", false); renderUnits(); show("units-view"); },
+        editArmies ? function(){
+          if(confirm("Delete \u201C" + a.name + "\u201D and all its units?")){
+            armies = armies.filter(function(x){ return x.id !== a.id; });
+            save(); renderArmies();
+          }
+        } : null
+      ));
+    });
+    el("note").hidden = storageOK;
+  }
+
+  function renderUnits(){
+    var a = army();
+    if(!a){ show("armies-view"); return; }
+    el("army-title").textContent = a.name;
+    var st = stats(a.units);
+    el("army-sub").textContent = st.total ? st.based + " of " + st.total + " models based" : "No models yet";
+    el("units-edit").hidden = a.units.length === 0;
+
+    var rows = el("units-rows");
+    rows.textContent = "";
+    el("units-empty").hidden = a.units.length > 0;
+
+    a.units.forEach(function(u){
+      var s = stats([u]);
+      rows.appendChild(progressRow(
+        u.name, s.based + " of " + s.total + " based", s.pct, s.based === s.total,
+        function(){ unitId = u.id; undoMode = false; setEdit("unit", false); renderUnit(); show("unit-view"); },
+        editUnits ? function(){
+          if(confirm("Delete \u201C" + u.name + "\u201D?")){
+            a.units = a.units.filter(function(x){ return x.id !== u.id; });
+            save(); renderUnits();
+          }
+        } : null
+      ));
+    });
+  }
+
+  function renderUnit(){
+    var u = unit(), a = army();
+    if(!u){ show("units-view"); return; }
+    el("unit-back-label").textContent = a.name;
+    el("unit-title").textContent = u.name;
+    var s = stats([u]);
+    el("unit-sub").textContent = s.based + " of " + s.total + " based";
+    el("unit-hint").textContent = undoMode
+      ? "Tap a model to step it back one stage."
+      : "Tap a model to advance it. Tap a stage's arrow to advance the whole group.";
+
+    var wrap = el("stages");
+    wrap.textContent = "";
+
+    STAGES.forEach(function(label, idx){
+      var at = [];
+      u.models.forEach(function(st,i){ if(st === idx) at.push(i); });
+
+      var box = document.createElement("div");
+      box.className = "stage";
+      if(at.length === 0) box.dataset.empty = "true";
+
+      var top = document.createElement("div");
+      top.className = "stage-top";
+
+      var nm = document.createElement("div");
+      nm.className = "stage-name";
+      nm.textContent = label;
+      top.appendChild(nm);
+
+      var ct = document.createElement("div");
+      ct.className = "stage-count";
+      ct.textContent = at.length;
+      top.appendChild(ct);
+
+      if(at.length && idx < LAST && !undoMode){
+        var push = document.createElement("button");
+        push.className = "push";
+        push.textContent = "All \u2192";
+        push.setAttribute("aria-label","Advance all models at " + label);
+        push.addEventListener("click", function(){
+          at.forEach(function(i){ u.models[i] = idx + 1; });
+          save(); renderUnit();
+        });
+        top.appendChild(push);
+      }
+      box.appendChild(top);
+
+      if(at.length){
+        var chips = document.createElement("div");
+        chips.className = "chips";
+        at.forEach(function(i){
+          var b = document.createElement("button");
+          b.className = "chip";
+          b.textContent = i + 1;
+          b.style.background = idx === 0
+            ? "var(--line)"
+            : "rgba(79,168,139," + (0.2 + 0.8*(idx/LAST)).toFixed(2) + ")";
+          b.setAttribute("aria-label","Model " + (i+1) + " at " + label);
+          b.addEventListener("click", function(){
+            if(undoMode){ if(u.models[i] > 0) u.models[i]--; }
+            else if(u.models[i] < LAST) u.models[i]++;
+            save(); renderUnit();
+          });
+          chips.appendChild(b);
+        });
+        box.appendChild(chips);
+      }
+      wrap.appendChild(box);
+    });
+  }
+
+  function setEdit(which, on){
+    if(which === "armies"){
+      editArmies = on;
+      el("armies-edit").setAttribute("aria-pressed", on);
+      el("armies-edit").textContent = on ? "Done" : "Edit";
+    }else if(which === "units"){
+      editUnits = on;
+      el("units-edit").setAttribute("aria-pressed", on);
+      el("units-edit").textContent = on ? "Done" : "Edit";
+    }else{
+      undoMode = on;
+      el("unit-edit").setAttribute("aria-pressed", on);
+      el("unit-edit").textContent = on ? "Done" : "Undo";
+    }
+  }
+
+  el("armies-edit").addEventListener("click", function(){ setEdit("armies", !editArmies); renderArmies(); });
+  el("units-edit").addEventListener("click", function(){ setEdit("units", !editUnits); renderUnits(); });
+  el("unit-edit").addEventListener("click", function(){ setEdit("unit", !undoMode); renderUnit(); });
+
+  el("units-back").addEventListener("click", function(){ renderArmies(); show("armies-view"); });
+  el("unit-back").addEventListener("click", function(){ renderUnits(); show("units-view"); });
+
+  // add army
+  var armyName = el("army-name"), armySave = el("army-save");
+  function openArmy(){ armyName.value = ""; armySave.disabled = true; show("add-army-view"); armyName.focus(); }
+  el("armies-add").addEventListener("click", openArmy);
+  el("armies-add-empty").addEventListener("click", openArmy);
+  el("army-cancel").addEventListener("click", function(){ show("armies-view"); });
+  armyName.addEventListener("input", function(){ armySave.disabled = !armyName.value.trim(); });
+  function commitArmy(){
+    var n = armyName.value.trim();
+    if(!n) return;
+    armies.push({ id:String(Date.now()), name:n, units:[] });
+    save(); renderArmies(); show("armies-view");
+  }
+  armySave.addEventListener("click", commitArmy);
+  armyName.addEventListener("keydown", function(e){ if(e.key === "Enter") commitArmy(); });
+
+  // add unit
+  var unitName = el("unit-name"), unitCount = el("unit-count"), unitSave = el("unit-save");
+  function openUnit(){ unitName.value = ""; unitCount.value = "10"; unitSave.disabled = true; show("add-unit-view"); unitName.focus(); }
+  el("units-add").addEventListener("click", openUnit);
+  el("units-add-empty").addEventListener("click", openUnit);
+  el("unit-cancel").addEventListener("click", function(){ show("units-view"); });
+  unitName.addEventListener("input", function(){ unitSave.disabled = !unitName.value.trim(); });
+  function commitUnit(){
+    var n = unitName.value.trim();
+    var c = Math.max(1, Math.min(60, parseInt(unitCount.value,10) || 1));
+    if(!n) return;
+    var models = [];
+    for(var i=0;i<c;i++) models.push(0);
+    army().units.push({ id:String(Date.now()), name:n, models:models });
+    save(); renderUnits(); show("units-view");
+  }
+  unitSave.addEventListener("click", commitUnit);
+  unitCount.addEventListener("keydown", function(e){ if(e.key === "Enter") commitUnit(); });
+
+  renderArmies();
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("./sw.js").catch(function(){});
+    });
+  }
+  if(navigator.storage && navigator.storage.persist){
+    navigator.storage.persist().catch(function(){});
+  }
+})();
+</script>
+</body>
+</html>
