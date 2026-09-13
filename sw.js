@@ -1,6 +1,6 @@
 // Bump CACHE on every deploy. Navigation requests are network-first, so a stale
 // cache name no longer strands installed users on an old index.html.
-var CACHE = "painting-v3";
+var CACHE = "painting-v4";
 
 // The shell. Faction points files are deliberately absent: they are fetched on
 // demand and cached on first use, so installing does not pull 318 KB the user
