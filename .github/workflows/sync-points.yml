@@ -1,0 +1,46 @@
+name: Sync points data
+
+# BSData re-scrapes the Munitorum Field Manual daily, so check a little after
+# it does and open a PR when GW has changed something.
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyyaml
+
+      - name: Regenerate data/ from the Munitorum Field Manual
+        run: python3 tools/sync-mfm.py
+
+      - name: Bump the service worker cache so clients pick the new data up
+        run: |
+          if ! git diff --quiet -- data; then
+            n=$(grep -oP 'painting-v\K[0-9]+' sw.js)
+            sed -i "s/painting-v$n/painting-v$((n + 1))/" sw.js
+          fi
+
+      - uses: peter-evans/create-pull-request@v6
+        with:
+          branch: points-data-update
+          title: "Points data update"
+          commit-message: "Update points data from the Munitorum Field Manual"
+          body: |
+            Regenerated `data/` from [BSData/wh40k-11e-mfm](https://github.com/BSData/wh40k-11e-mfm).
+            Check the diff for which units changed before merging.
+          add-paths: |
+            data
+            sw.js
