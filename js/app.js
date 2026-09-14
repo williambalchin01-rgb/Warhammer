@@ -1,5 +1,9 @@
 // Entry point: load state, warm the faction data it needs, wire the views.
 
+// Shown on the Data screen. Bump it with any deploy worth telling apart, so a
+// stale install can be spotted without guessing.
+const APP_VERSION = "2026-09-14";
+
 import * as S from "./store.js";
 import * as M from "./mfm.js";
 import { el, show, initPicker } from "./ui.js";
@@ -55,9 +59,13 @@ async function start() {
   refresh();
   tab("armies-view");
 
+  const stamp = (points) => {
+    el("data-version").textContent = "App " + APP_VERSION + " \u00B7 " + points;
+  };
+  stamp("checking points data\u2026");
   M.index()
-    .then((idx) => { el("data-version").textContent = "Points data: MFM v" + idx.version + " (" + idx.lastUpdated + ")"; })
-    .catch(() => { el("data-version").textContent = "Points data unavailable offline."; });
+    .then((idx) => stamp("MFM v" + idx.version + " (" + idx.lastUpdated + ")"))
+    .catch(() => stamp("points data unavailable offline"));
 }
 
 start();

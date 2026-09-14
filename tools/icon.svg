@@ -1,59 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="ground" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#1E2A36"/><stop offset="1" stop-color="#080C10"/>
-    </linearGradient>
-    <linearGradient id="plate" x1="0.2" y1="0" x2="0.85" y2="1">
-      <stop offset="0" stop-color="#718695"/><stop offset="0.5" stop-color="#44586A"/><stop offset="1" stop-color="#26333F"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0.1" y1="0" x2="0.9" y2="1">
-      <stop offset="0" stop-color="#FCE0AE"/><stop offset="0.38" stop-color="#DDA64F"/><stop offset="1" stop-color="#8A5820"/>
-    </linearGradient>
-    <linearGradient id="goldbar" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#F6D49C"/><stop offset="0.5" stop-color="#C9913F"/><stop offset="1" stop-color="#7E4F1C"/>
-    </linearGradient>
-    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#6F7D89"/><stop offset="0.36" stop-color="#F4F8FB"/><stop offset="1" stop-color="#4C5965"/>
-    </linearGradient>
-    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#6E6152"/><stop offset="0.33" stop-color="#E3D8C2"/><stop offset="1" stop-color="#5A4E41"/>
-    </linearGradient>
-    <linearGradient id="paint" x1="0.1" y1="0" x2="0.65" y2="1">
-      <stop offset="0" stop-color="#9DF5D5"/><stop offset="0.45" stop-color="#4FA88B"/><stop offset="1" stop-color="#1E5642"/>
-    </linearGradient>
-  </defs>
-
-  <rect width="512" height="512" fill="url(#ground)"/>
-
-  <g transform="translate(0,-21)">
-    <path d="M104 444 L104 300 A272 272 0 0 1 256 74 A272 272 0 0 1 408 300 L408 444 Z" fill="url(#plate)"/>
-    <path d="M104 444 L104 300 A272 272 0 0 1 256 74 A272 272 0 0 1 408 300 L408 444"
-          fill="none" stroke="url(#gold)" stroke-width="23"/>
-    <path d="M136 444 L136 304 A220 220 0 0 1 256 124 A220 220 0 0 1 376 304 L376 444"
-          fill="none" stroke="#060A0D" stroke-width="5" opacity="0.28"/>
-
-    <!-- brush, angled so the silhouette reads as a brush rather than a bullet -->
-    <g transform="rotate(-28 252 310)">
-      <path d="M256 178 C250 216 238 254 232 282 L280 282 C274 254 262 216 256 178 Z" fill="url(#paint)"/>
-      <path d="M256 178 C252 216 246 254 244 282 L232 282 C238 254 250 216 256 178 Z" fill="#C2F9E6" opacity="0.28"/>
-      <path d="M232 282 L280 282 L279 289 L233 289 Z" fill="#123024" opacity="0.45"/>
-      <rect x="225" y="284" width="62" height="40" rx="8" fill="url(#steel)"/>
-      <rect x="225" y="297" width="62" height="6" fill="#43505C" opacity="0.5"/>
-      <rect x="225" y="308" width="62" height="4" fill="#43505C" opacity="0.3"/>
-      <path d="M230 324 L282 324 L270 440 C268 452 244 452 242 440 Z" fill="url(#handle)"/>
-      <path d="M264 330 L274 330 L265 438 L259 430 Z" fill="#3A322A" opacity="0.32"/>
-    </g>
-
-    <rect x="84" y="438" width="344" height="42" rx="9" fill="url(#goldbar)"/>
-    <rect x="84" y="451" width="344" height="5" fill="#5E3A12" opacity="0.4"/>
-
-    <g fill="url(#gold)">
-      <circle cx="118" cy="459" r="11"/><circle cx="394" cy="459" r="11"/>
-      <circle cx="111" cy="228" r="12"/><circle cx="401" cy="228" r="12"/>
-    </g>
-    <g fill="#060A0D" opacity="0.55">
-      <circle cx="118" cy="459" r="4"/><circle cx="394" cy="459" r="4"/>
-      <circle cx="111" cy="228" r="4"/><circle cx="401" cy="228" r="4"/>
-    </g>
-  </g>
+  <rect width="512" height="512" fill="#000000"/>
+  <text x="256" y="256" fill="#FFFFFF"
+        font-family="Liberation Sans, Helvetica, Arial, sans-serif"
+        font-weight="bold" font-size="214" letter-spacing="-6"
+        text-anchor="middle" dominant-baseline="central">GW</text>
 </svg>

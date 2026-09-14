@@ -63,6 +63,9 @@ python3 -m http.server 8777
 ```
 
 Icons are generated from `tools/icon.svg`; after editing it run
+`node tools/render-icons.mjs` to rewrite the three PNGs. iOS never updates the
+icon of an already-installed home-screen app, so testing an icon change means
+removing it from the home screen and re-adding it.
 `node tools/render-icons.mjs` to rewrite the three PNGs.
 
 **Bump `CACHE` in `sw.js` whenever you change the shell.** `index.html` and the
