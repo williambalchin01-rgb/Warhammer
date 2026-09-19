@@ -62,10 +62,13 @@ service worker will not run from `file://`:
 python3 -m http.server 8777
 ```
 
-Icons are generated from `tools/icon.svg`; after editing it run
-`node tools/render-icons.mjs` to rewrite the three PNGs. iOS never updates the
-icon of an already-installed home-screen app, so testing an icon change means
-removing it from the home screen and re-adding it.
+Icons are generated from `tools/icon-source.jpg`; run `node
+tools/render-icons.mjs` to rewrite the three PNGs. The renderer crops the
+artwork out of the source mock-up and re-lays it on a full-bleed square,
+because iOS and Android apply their own corner mask and baked-in rounding
+shows as a dark halo. iOS never updates the icon of an already-installed
+home-screen app, so testing an icon change means removing it from the home
+screen and re-adding it.
 `node tools/render-icons.mjs` to rewrite the three PNGs.
 
 **Bump `CACHE` in `sw.js` whenever you change the shell.** `index.html` and the
@@ -83,7 +86,7 @@ cache name is what clears the old copies out.
 | `js/views-*.js` | Collection, lists, and backup screens |
 | `sw.js` | Service worker: network-first shell, cached data |
 | `tools/sync-mfm.py` | Regenerates `data/` from the Munitorum Field Manual |
-| `tools/icon.svg` | Source art for the app icons |
+| `tools/icon-source.jpg` | Source art for the app icons |
 | `tools/render-icons.mjs` | Rasterises the icon source to the three PNG sizes |
 
 Stored data is versioned (`schema`), and older backups are migrated forward on

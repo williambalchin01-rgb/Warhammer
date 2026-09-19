@@ -2,7 +2,7 @@
 
 // Shown on the Data screen. Bump it with any deploy worth telling apart, so a
 // stale install can be spotted without guessing.
-const APP_VERSION = "2026-09-14b";
+const APP_VERSION = "2026-09-19";
 
 import * as S from "./store.js";
 import * as M from "./mfm.js";

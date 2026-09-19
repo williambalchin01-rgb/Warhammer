@@ -1,9 +1,11 @@
-// Regenerates the app icons from tools/icon.svg.
+// Regenerates the app icons from tools/icon-source.jpg.
 //
 //   node tools/render-icons.mjs
 //
-// Chromium does the rasterising, so gradients and arcs come out exactly as the
-// browser draws them. Sizes are fixed by the manifest and by iOS.
+// The source is a mock-up: the artwork appears twice, on tiles with rounded
+// corners already drawn in. iOS and Android apply their own corner mask, so
+// baked-in rounding would show as a dark halo. This lifts the artwork out of
+// the first tile and re-lays it on a clean, full-bleed square.
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -11,7 +13,14 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
-const svg = readFileSync(join(here, "icon.svg"), "utf8");
+const source = readFileSync(join(here, "icon-source.jpg"));
+
+const GROUND = "#2B2321";        // the tile ground, sampled from the source
+const CROP = { x: 133, y: 107, w: 437, h: 452 };
+
+// Keep the artwork inside the middle 80%, which is all a maskable icon is
+// guaranteed to show.
+const COVERAGE = 0.78;
 
 const OUT = [
   [512, "icon-512.png"],
@@ -20,14 +29,35 @@ const OUT = [
 ];
 
 const browser = await chromium.launch();
+const page = await (await browser.newContext()).newPage();
+
 for (const [size, name] of OUT) {
-  const ctx = await browser.newContext({ viewport: { width: size, height: size } });
-  const page = await ctx.newPage();
-  // No transparency: iOS composites the home screen icon onto black.
-  await page.setContent(
-    `<style>html,body{margin:0;background:#080C10}svg{display:block;width:${size}px;height:${size}px}</style>${svg}`
-  );
-  writeFileSync(join(root, name), await page.screenshot({ omitBackground: false }));
+  const dataUrl = await page.evaluate(async ({ url, size, GROUND, CROP, COVERAGE }) => {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+
+    const c = document.createElement("canvas");
+    c.width = size;
+    c.height = size;
+    const g = c.getContext("2d");
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = "high";
+
+    // Opaque ground: iOS composites home-screen icons onto black, so any
+    // transparency would read as a hole.
+    g.fillStyle = GROUND;
+    g.fillRect(0, 0, size, size);
+
+    const scale = (size * COVERAGE) / CROP.h;
+    const dw = CROP.w * scale;
+    const dh = CROP.h * scale;
+    g.drawImage(img, CROP.x, CROP.y, CROP.w, CROP.h,
+                (size - dw) / 2, (size - dh) / 2, dw, dh);
+    return c.toDataURL("image/png");
+  }, { url: "data:image/jpeg;base64," + source.toString("base64"), size, GROUND, CROP, COVERAGE });
+
+  writeFileSync(join(root, name), Buffer.from(dataUrl.split(",")[1], "base64"));
   console.log(name, size + "x" + size);
 }
 await browser.close();
