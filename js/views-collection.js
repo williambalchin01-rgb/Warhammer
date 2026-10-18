@@ -10,6 +10,10 @@ let resizing = null;   // the unit being resized, when add-unit-view is reused
 let refresh = () => {};
 let openScheme = () => {};
 let newScheme = () => {};
+let kt = { rows: () => 0, create: () => {}, remove: () => false };
+
+/** Kill teams share the Armies tab; their screens live in views-kt.js. */
+export function onKillteams(hooks) { kt = hooks; }
 
 /** Paint-scheme screens live in another module; app.js wires them in. */
 export function onSchemes(open, create) {
@@ -43,11 +47,16 @@ const pointsLabel = (c) =>
 
 export function renderArmies() {
   const rows = clear(el("armies-rows"));
-  el("armies-empty").hidden = S.db.armies.length > 0;
-  el("armies-edit").hidden = S.db.armies.length === 0;
-  if (!S.db.armies.length) {
-    empty(el("armies-empty"), "No armies yet.", "Add your first army", openAddArmy);
+  const nArmies = S.db.armies.length, nKts = S.db.killteams.length;
+  el("armies-empty").hidden = nArmies + nKts > 0;
+  el("armies-edit").hidden = nArmies + nKts === 0;
+  if (!nArmies && !nKts) {
+    empty(el("armies-empty"), "No armies or kill teams yet.", "Add your first", chooseAdd);
   }
+  // Headings only earn their place once there are both kinds to tell apart.
+  el("armies-heading").hidden = !(nArmies && nKts);
+  el("kt-heading").hidden = !nKts;
+  kt.rows(el("killteam-rows"), editArmies, (k) => { if (kt.remove(k)) refresh(); });
 
   let points = 0, unpriced = 0;
   const all = [];
@@ -86,6 +95,22 @@ export function renderArmies() {
       } : null,
     }));
   }
+}
+
+function chooseAdd() {
+  pick({
+    title: "Add",
+    back: "armies-view",
+    options: [
+      { value: "army", label: "Army", sub: "Warhammer 40,000: units, points and lists" },
+      { value: "kt", label: "Kill team", sub: "Kill Team: a roster of operatives with datacards" },
+    ],
+    onPick: (v) => {
+      if (v === "army") openAddArmy();
+      else if (v === "kt") kt.create();
+      else show("armies-view");
+    },
+  });
 }
 
 export function openArmy(id) {
@@ -447,7 +472,7 @@ function wire() {
   el("units-back").addEventListener("click", () => { renderArmies(); show("armies-view"); });
   el("unit-back").addEventListener("click", () => { renderUnits(); show("units-view"); });
 
-  el("armies-add").addEventListener("click", openAddArmy);
+  el("armies-add").addEventListener("click", chooseAdd);
   el("units-add").addEventListener("click", openAddUnit);
 
   el("army-faction").addEventListener("click", () => {

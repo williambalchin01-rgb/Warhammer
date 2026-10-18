@@ -19,22 +19,30 @@ const AREAS = [
 
 let refresh = () => {};
 let jumpToUnit = () => {};
+let jumpToKillteam = () => {};
 
 let schemeId = null;
 let schemeBack = { view: "paints-view", label: "Paints" };
 let editSteps = false;
-let schemeDraft = null;   // { id | null, linkUnitId, back }
+let schemeDraft = null;   // { id | null, linkUnitId, linkKtId, back }
 let stepDraft = null;     // { stepId | null, stage, paintId, area, note }
 let paintDraft = null;    // { id | null, type, returnTo }
 let rackQuery = "";
 
-export function init(onChange, onJumpToUnit) {
+export function init(onChange, onJumpToUnit, onJumpToKillteam) {
   refresh = onChange;
   jumpToUnit = onJumpToUnit;
+  jumpToKillteam = onJumpToKillteam;
   wire();
 }
 
 const current = () => S.scheme(schemeId);
+
+/** How many units and kill teams wear a scheme. */
+function usageLabel(id) {
+  const u = S.unitsUsing(id).length, k = S.killteamsUsing(id).length;
+  return [u ? plural(u, "unit") : null, k ? plural(k, "kill team") : null].filter(Boolean).join(" and ");
+}
 const paintLabel = (p) => (p.brand ? p.brand + " " : "") + p.name;
 
 function schemesUsingPaint(paintId) {
@@ -76,13 +84,13 @@ export function renderPaints() {
   }
 
   for (const sc of S.db.schemes) {
-    const used = S.unitsUsing(sc.id).length;
+    const used = usageLabel(sc.id);
     const missing = S.missingPaints(sc).length;
     rows.appendChild(row({
       name: sc.name,
       badge: plural(sc.steps.length, "step"),
       sub: [
-        used ? "Used by " + plural(used, "unit") : "Not linked to a unit",
+        used ? "Used by " + used : "Not linked yet",
         missing ? missing + " to buy" : null,
       ].filter(Boolean).join(" · "),
       onOpen: () => openScheme(sc.id, { view: "paints-view", label: "Paints" }),
@@ -108,10 +116,12 @@ export function renderScheme() {
   el("scheme-back-label").textContent = schemeBack.label;
   el("scheme-title").textContent = sc.name;
   const used = S.unitsUsing(sc.id);
+  const kts = S.killteamsUsing(sc.id);
   const missing = S.missingPaints(sc);
+  const usage = usageLabel(sc.id);
   el("scheme-sub").textContent = [
     plural(sc.steps.length, "step"),
-    used.length ? "used by " + plural(used.length, "unit") : null,
+    usage ? "used by " + usage : null,
     missing.length ? missing.length + " to buy" : null,
   ].filter(Boolean).join(" · ");
 
@@ -180,7 +190,17 @@ export function renderScheme() {
       onOpen: () => jumpToUnit(unit.id),
     }));
   }
-  el("scheme-used-empty").hidden = used.length > 0;
+  for (const k of kts) {
+    const st = S.opStats(k.operatives);
+    usedList.appendChild(row({
+      name: k.name,
+      sub: "Kill team \u00B7 " + st.based + " of " + st.total + " painted",
+      pct: st.total ? st.pct : null,
+      complete: st.done,
+      onOpen: () => jumpToKillteam(k.id),
+    }));
+  }
+  el("scheme-used-empty").hidden = used.length + kts.length > 0;
 }
 
 function moveStep(i, delta) {
@@ -238,16 +258,29 @@ function linkUnits() {
       });
     }
   }
+  for (const k of S.db.killteams) {
+    const linked = k.schemes.includes(sc.id);
+    options.push({
+      value: "kt:" + k.id, label: k.name, group: "Kill teams",
+      sub: linked ? "Linked \u2014 tap to unlink" : null,
+      badge: linked ? "\u2713" : null,
+    });
+  }
   if (!options.length) {
-    alert("Add an army and some units first, then link this scheme to them.");
+    alert("Add an army or a kill team first, then link this scheme to it.");
     return;
   }
   pick({
-    title: "Link to unit",
+    title: "Link to units",
     back: "scheme-view",
     options,
     onPick: (unitId) => {
-      const u = S.unit(unitId);
+      const k = unitId && unitId.startsWith("kt:") ? S.killteam(unitId.slice(3)) : null;
+      if (k) {
+        k.schemes = k.schemes.includes(sc.id) ? k.schemes.filter((x) => x !== sc.id) : k.schemes.concat(sc.id);
+        S.save();
+      }
+      const u = k ? null : S.unit(unitId);
       if (u) {
         u.schemes = u.schemes.includes(sc.id)
           ? u.schemes.filter((x) => x !== sc.id)
@@ -262,8 +295,8 @@ function linkUnits() {
 
 // ---- scheme details form -----------------------------------------------------
 
-export function newScheme({ linkUnitId, back }) {
-  schemeDraft = { id: null, linkUnitId: linkUnitId || null, back: back || null };
+export function newScheme({ linkUnitId, linkKtId, back }) {
+  schemeDraft = { id: null, linkUnitId: linkUnitId || null, linkKtId: linkKtId || null, back: back || null };
   el("schemef-title").textContent = "New scheme";
   el("schemef-name").value = "";
   el("schemef-note").value = "";
@@ -304,8 +337,12 @@ function saveScheme() {
   if (schemeDraft.linkUnitId) {
     const u = S.unit(schemeDraft.linkUnitId);
     if (u) u.schemes.push(sc.id);
-    if (schemeDraft.back) back = schemeDraft.back;
   }
+  if (schemeDraft.linkKtId) {
+    const k = S.killteam(schemeDraft.linkKtId);
+    if (k) k.schemes.push(sc.id);
+  }
+  if (schemeDraft.back) back = schemeDraft.back;
   S.save();
   refresh();
   openScheme(sc.id, back);
@@ -314,11 +351,12 @@ function saveScheme() {
 async function deleteScheme() {
   const sc = S.scheme(schemeDraft && schemeDraft.id);
   if (!sc) return;
-  const used = S.unitsUsing(sc.id).length;
+  const used = usageLabel(sc.id);
   if (!confirm("Delete the scheme “" + sc.name + "”?" +
-      (used ? "\n\nIt will be unlinked from " + plural(used, "unit") + "." : ""))) return;
+      (used ? "\n\nIt will be unlinked from " + used + "." : ""))) return;
   S.db.schemes = S.db.schemes.filter((x) => x.id !== sc.id);
   for (const a of S.db.armies) for (const u of a.units) u.schemes = u.schemes.filter((x) => x !== sc.id);
+  for (const k of S.db.killteams) k.schemes = k.schemes.filter((x) => x !== sc.id);
   S.save();
   try { await P.remove(sc.id); } catch (e) { /* no photo store; nothing to remove */ }
   const back = schemeBack.view === "scheme-view" ? "paints-view" : schemeBack.view;

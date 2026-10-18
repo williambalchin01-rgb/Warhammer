@@ -31,6 +31,15 @@ from the chosen detachment. Alongside the points total it shows how much of the
 list is fully based and which units are still to paint — a painting queue driven
 by what you intend to play.
 
+**Kill teams.** A kill team is a roster and the models in it at once. Pick a
+team, add operatives, choose their weapon options, and each one gets its
+datacard: stats, weapon profiles, abilities, unique actions, and what each
+weapon rule means. Every operative has its own painting stage, the team wears
+paint schemes as a whole, and the roster warns (never blocks) on a missing
+leader, the wrong number of operatives or too many of one type. Data comes
+from [BSData/wh40k-killteam](https://github.com/BSData/wh40k-killteam), which
+covers operatives, weapons, faction rules and equipment but mostly not ploys.
+
 **Paint schemes.** A scheme is a reusable recipe ("Ultramarines armour"):
 ordered steps, each with a stage (base, shade, layer, highlight…), a paint, the
 area it goes on and a note, plus a reference photo of a finished model. Link a
@@ -42,10 +51,11 @@ don't own yet lands on the **shopping list**, along with which schemes need it.
 **Battle log.** Date, result, score, opponent, mission, and, the useful part,
 what worked and what didn't. Each list shows its record.
 
-**Ask Claude.** From any list, pick a question (game plan, list review,
+**Ask Claude.** From any list or kill team, pick a question (game plan, list review,
 matchup, learn from my games, or your own) and the app builds a prompt from the
 list, detachment, points, painted state, spare units and recent games. It's
-copied and Claude opens; you paste it into a new chat. Nothing is sent from the
+copied and Claude opens. Kill Team prompts carry the full datacards and faction
+rules, so the advice works from the actual rules; you paste it into a new chat. Nothing is sent from the
 app, so there's no API key and no extra cost. The prompt asks Claude to say
 when it isn't sure of a current rule rather than guess.
 
@@ -71,6 +81,18 @@ python3 tools/sync-mfm.py          # clones the source and regenerates data/
 
 `.github/workflows/sync-points.yml` does this daily and opens a pull request
 when the values change, so points updates need only a review and a merge.
+
+## Kill Team data
+
+`data/kt/` holds one JSON file per kill team plus `index.json` and `rules.json`
+(weapon rules and universal equipment), generated from the BattleScribe
+catalogues:
+
+```sh
+python3 tools/sync-killteam.py     # clones the source and regenerates data/kt/
+```
+
+The same daily workflow refreshes it alongside the points.
 
 ## Development
 
@@ -111,11 +133,13 @@ cache name is what clears the old copies out.
 | `js/store.js` | State, persistence, schema migration, backup |
 | `js/mfm.js` | Points data loading and the costing arithmetic |
 | `js/ui.js` | DOM helpers, view switching, the shared picker |
+| `js/kt.js` | Kill Team data loading, weapons, composition checks |
 | `js/photos.js` | Scheme photos in IndexedDB, downscaled on the way in |
 | `js/views-*.js` | Collection, lists, paints, games, Ask Claude, backup |
 | `tests/` | Browser and unit tests (`npm test`) |
 | `sw.js` | Service worker: network-first shell, cached data |
 | `tools/sync-mfm.py` | Regenerates `data/` from the Munitorum Field Manual |
+| `tools/sync-killteam.py` | Regenerates `data/kt/` from the BSData Kill Team catalogues |
 | `tools/icon-source.jpg` | Source art for the app icons |
 | `tools/render-icons.mjs` | Rasterises the icon source to the three PNG sizes |
 

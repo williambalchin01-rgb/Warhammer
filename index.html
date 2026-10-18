@@ -174,6 +174,29 @@
   .score{display:flex;gap:10px;align-items:center}
   .score input{flex:1;min-width:0}
   .score span{color:var(--muted)}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+  .stat{background:var(--surface);border-radius:var(--radius);padding:12px 6px;text-align:center}
+  .stat-v{font-size:22px;font-weight:300;font-variant-numeric:tabular-nums}
+  .stat-l{margin-top:2px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .stage-picks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .stage-pick{padding:7px 11px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--muted)}
+  .stage-pick[aria-pressed="true"]{background:rgba(var(--done-rgb),.28);border-color:var(--done);color:var(--ink)}
+  .opt{margin-top:12px}
+  .opt .chip-btn{margin-top:6px;white-space:normal;text-align:left}
+  .wpns{margin-top:10px;background:var(--surface);border-radius:var(--radius);padding:4px 12px}
+  .wpn{display:grid;grid-template-columns:1fr 40px 40px 52px;column-gap:6px;align-items:baseline;
+       padding:10px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums;font-size:15px}
+  .wpn > div:not(.wpn-name):not(.wpn-wr){text-align:center}
+  .wpn-head{border-top:none;padding:8px 0 2px;font-size:11px;letter-spacing:.12em;color:var(--muted)}
+  .wpn-name{font-weight:500;overflow-wrap:anywhere;min-width:0}
+  .wpn-kind{display:inline-block;width:18px;color:var(--muted)}
+  .wpn-wr{grid-column:1 / -1;margin-top:3px;padding-left:18px;font-size:12px;letter-spacing:.03em;color:var(--today)}
+  .rule{margin-top:10px;padding:11px 13px;background:var(--surface);border-radius:var(--radius)}
+  .rule-name{font-weight:500;font-size:15px}
+  .rule-text{margin-top:4px;font-size:13px;line-height:1.45;color:#B9C3CC;white-space:pre-wrap;overflow-wrap:anywhere}
+  .rules-block{margin-top:12px}
+  .rules-block summary{cursor:pointer;padding:10px 2px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .rules-block[open] summary{color:var(--ink)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -198,7 +221,10 @@
       <button class="bar-btn" id="armies-add">Add</button>
     </div>
   </div>
+  <div class="group" id="armies-heading" hidden>Armies</div>
   <ul class="rows" id="armies-rows"></ul>
+  <div class="group" id="kt-heading" hidden>Kill teams</div>
+  <ul class="rows" id="killteam-rows"></ul>
   <div class="empty" id="armies-empty" hidden></div>
   <p class="note" id="note" hidden>Storage is blocked here, so changes won't be saved between sessions.</p>
   <p class="note" id="backup-line" hidden><button class="note-link" id="backup-open"></button></p>
@@ -362,6 +388,59 @@
   <ul class="rows" id="shop-rows"></ul>
   <div class="empty" id="shop-empty" hidden></div>
   <p class="hint" id="shop-status"></p>
+</main>
+
+<main id="kt-view" hidden>
+  <div class="bar">
+    <div class="bar-left">
+      <button class="back" id="kt-back">&larr; Armies</button>
+      <div class="title" id="kt-title"></div>
+      <div class="sub" id="kt-sub"></div>
+      <button class="chip-btn" id="kt-team"></button>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="kt-edit" aria-pressed="false">Edit</button>
+      <button class="bar-btn" id="kt-add">Add</button>
+    </div>
+  </div>
+  <p class="hint" id="kt-composition"></p>
+  <p class="warn" id="kt-warn" hidden></p>
+  <div class="section">
+    <div class="stage-name">Paint schemes</div>
+    <div class="chip-strip" id="kt-schemes"></div>
+  </div>
+  <ul class="rows" id="kt-rows"></ul>
+  <div class="empty" id="kt-empty" hidden></div>
+  <div id="kt-rules"></div>
+  <p class="summary-line" id="kt-record" hidden></p>
+  <div class="action-strip">
+    <button class="btn primary-btn" id="kt-ask">Ask Claude about this kill team</button>
+    <button class="btn" id="kt-log">Log a game with this kill team</button>
+  </div>
+</main>
+
+<main id="op-view" hidden>
+  <div class="bar">
+    <div class="bar-left">
+      <button class="back" id="op-back">&larr; <span id="op-back-label"></span></button>
+      <div class="title" id="op-title"></div>
+      <div class="sub" id="op-sub"></div>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="op-rename">Rename</button>
+    </div>
+  </div>
+  <div class="stats" id="op-stats"></div>
+  <div class="section">
+    <div class="stage-name">Painting</div>
+    <div class="stage-picks" id="op-stage"></div>
+  </div>
+  <div class="section" id="op-options-wrap">
+    <div id="op-options"></div>
+  </div>
+  <div class="group">Weapons</div>
+  <div class="wpns" id="op-weapons"></div>
+  <div id="op-abilities"></div>
 </main>
 
 <main id="games-view" hidden>
@@ -584,6 +663,26 @@
     <button class="btn" id="claude-copy">Copy only</button>
   </div>
   <p class="hint" id="claude-status"></p>
+</section>
+
+<section id="kt-form-view" hidden>
+  <div class="bar">
+    <div class="bar-left"><div class="eyebrow" id="ktf-title">New kill team</div></div>
+    <div class="actions">
+      <button class="bar-btn" id="ktf-cancel">Cancel</button>
+      <button class="bar-btn primary" id="ktf-save" disabled>Save</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Team</label>
+    <button class="chip-btn" id="ktf-team"></button>
+    <p class="hint" id="ktf-hint"></p>
+  </div>
+  <div class="field">
+    <label for="ktf-name">Name</label>
+    <input id="ktf-name" type="text" placeholder="Kasrkin" maxlength="40" autocomplete="off">
+  </div>
+  <button class="btn danger-btn" id="ktf-delete" hidden>Delete kill team</button>
 </section>
 
 <section id="picker-view" hidden>

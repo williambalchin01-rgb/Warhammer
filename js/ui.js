@@ -5,10 +5,11 @@ export const el = (id) => document.getElementById(id);
 export const VIEWS = [
   "armies-view", "units-view", "unit-view",
   "lists-view", "list-view",
+  "kt-view", "op-view",
   "paints-view", "scheme-view", "rack-view", "shop-view",
   "games-view",
   "add-army-view", "add-unit-view", "add-list-view",
-  "scheme-form-view", "step-form-view", "paint-form-view", "battle-form-view",
+  "kt-form-view", "scheme-form-view", "step-form-view", "paint-form-view", "battle-form-view",
   "claude-view", "picker-view", "data-view",
 ];
 

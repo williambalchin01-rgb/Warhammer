@@ -1,7 +1,8 @@
-name: Sync points data
+name: Sync rules data
 
-# BSData re-scrapes the Munitorum Field Manual daily, so check a little after
-# it does and open a PR when GW has changed something.
+# BSData re-scrapes the Munitorum Field Manual daily and maintains the Kill
+# Team catalogues by hand, so check once a day and open a PR when either has
+# changed.
 on:
   schedule:
     - cron: "0 7 * * *"
@@ -23,8 +24,11 @@ jobs:
 
       - run: pip install pyyaml
 
-      - name: Regenerate data/ from the Munitorum Field Manual
+      - name: Regenerate 40k points from the Munitorum Field Manual
         run: python3 tools/sync-mfm.py
+
+      - name: Regenerate Kill Team data from the BSData catalogues
+        run: python3 tools/sync-killteam.py
 
       - name: Bump the service worker cache so clients pick the new data up
         run: |
@@ -35,12 +39,13 @@ jobs:
 
       - uses: peter-evans/create-pull-request@v6
         with:
-          branch: points-data-update
-          title: "Points data update"
-          commit-message: "Update points data from the Munitorum Field Manual"
+          branch: rules-data-update
+          title: "Rules data update"
+          commit-message: "Update points and Kill Team data"
           body: |
-            Regenerated `data/` from [BSData/wh40k-11e-mfm](https://github.com/BSData/wh40k-11e-mfm).
-            Check the diff for which units changed before merging.
+            Regenerated `data/` from [BSData/wh40k-11e-mfm](https://github.com/BSData/wh40k-11e-mfm)
+            (40k points) and [BSData/wh40k-killteam](https://github.com/BSData/wh40k-killteam) (Kill Team).
+            Check the diff for what changed before merging.
           add-paths: |
             data
             sw.js

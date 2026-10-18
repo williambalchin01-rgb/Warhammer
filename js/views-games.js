@@ -11,7 +11,7 @@ import { el, show, clear, row, empty, pick, plural } from "./ui.js";
 const RESULT = { W: "Win", L: "Loss", D: "Draw" };
 
 let refresh = () => {};
-let draft = null;   // { id | null, result, listId, back }
+let draft = null;   // { id | null, result, forceId (a list or kill team id), back }
 
 export function init(onChange) {
   refresh = onChange;
@@ -59,20 +59,25 @@ export function renderGames() {
   }
 
   for (const b of all) {
-    const list = S.list(b.listId);
     rows.appendChild(row({
       name: b.opponent ? "vs " + b.opponent : "Unnamed opponent",
       badge: [resultLabel(b.result), scoreLabel(b)].filter(Boolean).join(" "),
-      sub: [dateLabel(b.date), list ? list.name : b.listName, b.mission].filter(Boolean).join(" · "),
+      sub: [dateLabel(b.date), forceName(b), b.mission].filter(Boolean).join(" · "),
       onOpen: () => editGame(b.id),
     }));
   }
 }
 
+/** What the game was played with: a 40k list or a kill team, live or remembered. */
+export function forceName(b) {
+  const l = S.list(b.listId), k = S.killteam(b.ktId);
+  return l ? l.name : k ? k.name : b.listName;
+}
+
 // ---- form ------------------------------------------------------------------
 
-export function logGame({ listId, back }) {
-  draft = { id: null, result: null, listId: listId || null, back: back || "games-view" };
+export function logGame({ listId, ktId, back }) {
+  draft = { id: null, result: null, forceId: listId || ktId || null, back: back || "games-view" };
   el("battlef-title").textContent = "Log a game";
   el("battlef-date").value = today();
   el("battlef-for").value = "";
@@ -88,7 +93,7 @@ export function logGame({ listId, back }) {
 function editGame(id) {
   const b = S.battle(id);
   if (!b) return;
-  draft = { id: b.id, result: b.result, listId: b.listId, back: "games-view" };
+  draft = { id: b.id, result: b.result, forceId: b.listId || b.ktId, back: "games-view" };
   el("battlef-title").textContent = "Edit game";
   el("battlef-date").value = b.date;
   el("battlef-for").value = b.scoreFor != null ? String(b.scoreFor) : "";
@@ -139,10 +144,10 @@ function renderResult() {
 }
 
 function renderListChip() {
-  const l = S.list(draft.listId);
+  const f = S.list(draft.forceId) || S.killteam(draft.forceId);
   const chip = el("battlef-list");
-  chip.textContent = l ? l.name : "No list";
-  chip.dataset.unset = l ? "false" : "true";
+  chip.textContent = f ? f.name : "No list";
+  chip.dataset.unset = f ? "false" : "true";
 }
 
 function validate() {
@@ -151,17 +156,17 @@ function validate() {
 
 function pickList() {
   pick({
-    title: "List",
+    title: "Played with",
     back: "battle-form-view",
-    current: draft.listId,
+    current: draft.forceId,
     allowNone: true,
     noneLabel: "No list",
     options: S.db.lists.map((l) => {
       const a = S.army(l.armyId);
-      return { value: l.id, label: l.name, sub: a ? a.name : null };
-    }),
+      return { value: l.id, label: l.name, sub: a ? a.name : null, group: "Army lists" };
+    }).concat(S.db.killteams.map((k) => ({ value: k.id, label: k.name, group: "Kill teams" }))),
     onPick: (id) => {
-      draft.listId = id;
+      draft.forceId = id;
       renderListChip();
       show("battle-form-view");
     },
@@ -176,7 +181,8 @@ function save() {
     const n = parseInt(el(id).value, 10);
     return isNaN(n) ? null : Math.max(0, Math.min(999, n));
   };
-  const l = S.list(draft.listId);
+  const l = S.list(draft.forceId);
+  const k = l ? null : S.killteam(draft.forceId);
   const a = l ? S.army(l.armyId) : null;
   const fields = {
     date,
@@ -184,7 +190,8 @@ function save() {
     scoreFor: num("battlef-for"),
     scoreAgainst: num("battlef-against"),
     listId: l ? l.id : null,
-    listName: l ? l.name : "",
+    ktId: k ? k.id : null,
+    listName: l ? l.name : k ? k.name : "",
     armyName: a ? a.name : "",
     opponent: el("battlef-opp").value.trim().slice(0, 40),
     mission: el("battlef-mission").value.trim().slice(0, 60),
@@ -194,7 +201,7 @@ function save() {
   if (draft.id) {
     const b = S.battle(draft.id);
     // Keep the snapshot names when the list has since been deleted.
-    if (b && !l) { fields.listName = b.listName; fields.armyName = b.armyName; }
+    if (b && !l && !k) { fields.listName = b.listName; fields.armyName = b.armyName; }
     Object.assign(b, fields);
   } else {
     S.db.battles.push(Object.assign({ id: S.uid() }, fields));

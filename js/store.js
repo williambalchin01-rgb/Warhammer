@@ -5,7 +5,7 @@
 
 export const STAGES = ["Not started", "Assembled", "Primed", "Base colours", "Details", "Based"];
 export const LAST = STAGES.length - 1;
-export const SCHEMA = 3;
+export const SCHEMA = 4;
 
 export const PAINT_TYPES = [
   "Base", "Layer", "Shade", "Contrast", "Speedpaint", "Dry", "Technical",
@@ -24,7 +24,7 @@ const MAX_MODELS = 60;
 export const db = empty();
 
 function empty() {
-  return { schema: SCHEMA, armies: [], lists: [], paints: [], schemes: [], battles: [] };
+  return { schema: SCHEMA, armies: [], lists: [], killteams: [], paints: [], schemes: [], battles: [] };
 }
 
 export let storageOK = true;
@@ -152,7 +152,40 @@ function cleanSchemes(raw, paintIds, keepId) {
   return schemes;
 }
 
-function cleanBattles(raw, listIds, keepId) {
+function cleanKillteams(raw, schemeIds, keepId) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const k of raw.slice(0, 200)) {
+    if (!k || typeof k !== "object") continue;
+    const name = str(k.name, 40);
+    const team = str(k.team, 60);
+    if (!name || !team) continue;
+    const operatives = (Array.isArray(k.operatives) ? k.operatives : []).slice(0, 60)
+      .filter((o) => o && typeof o === "object" && str(o.type, 80))
+      .map((o) => {
+        const choices = {};
+        if (o.choices && typeof o.choices === "object") {
+          for (const [g, c] of Object.entries(o.choices).slice(0, 20)) {
+            const gk = str(g, 60), cv = str(c, 120);
+            if (gk && cv) choices[gk] = cv;
+          }
+        }
+        return {
+          id: keepId(o.id),
+          type: str(o.type, 80),
+          name: str(o.name, 40),
+          stage: int(o.stage, 0, LAST) || 0,
+          choices,
+        };
+      });
+    const schemes = (Array.isArray(k.schemes) ? k.schemes : [])
+      .filter((id, i, all) => schemeIds.has(id) && all.indexOf(id) === i);
+    out.push({ id: keepId(k.id), name, team, operatives, schemes, notes: str(k.notes, 1000) });
+  }
+  return out;
+}
+
+function cleanBattles(raw, listIds, keepId, ktIds) {
   if (!Array.isArray(raw)) return [];
   const battles = [];
   for (const b of raw.slice(0, 2000)) {
@@ -166,6 +199,7 @@ function cleanBattles(raw, listIds, keepId) {
       scoreFor: int(b.scoreFor, 0, 999),
       scoreAgainst: int(b.scoreAgainst, 0, 999),
       listId: listIds.has(b.listId) ? b.listId : null,
+      ktId: ktIds.has(b.ktId) ? b.ktId : null,
       // Names are snapshotted so a game still reads properly after its list or
       // army is deleted.
       listName: str(b.listName, 40),
@@ -191,8 +225,10 @@ export function migrate(raw) {
   const armies = cleanArmies(env.armies, new Set(schemes.map((sc) => sc.id)), keepId);
   if (!armies) return null;
   const lists = cleanLists(env.lists, armies, keepId);
-  const battles = cleanBattles(env.battles, new Set(lists.map((l) => l.id)), keepId);
-  return { schema: SCHEMA, armies, lists, paints, schemes, battles };
+  const killteams = cleanKillteams(env.killteams, new Set(schemes.map((sc) => sc.id)), keepId);
+  const battles = cleanBattles(env.battles, new Set(lists.map((l) => l.id)), keepId,
+    new Set(killteams.map((k) => k.id)));
+  return { schema: SCHEMA, armies, lists, killteams, paints, schemes, battles };
 }
 
 export function load() {
@@ -237,13 +273,13 @@ export function replaceAll(next) {
 export function exportData(extra) {
   return JSON.stringify(Object.assign({
     schema: SCHEMA,
-    armies: db.armies, lists: db.lists,
+    armies: db.armies, lists: db.lists, killteams: db.killteams,
     paints: db.paints, schemes: db.schemes, battles: db.battles,
   }, extra || {}));
 }
 
 export const isEmpty = () =>
-  !db.armies.length && !db.paints.length && !db.schemes.length && !db.battles.length;
+  !db.armies.length && !db.killteams.length && !db.paints.length && !db.schemes.length && !db.battles.length;
 
 export function backupAt() {
   try {
@@ -266,6 +302,18 @@ export const list = (id) => db.lists.find((l) => l.id === id) || null;
 export const paint = (id) => db.paints.find((p) => p.id === id) || null;
 export const scheme = (id) => db.schemes.find((sc) => sc.id === id) || null;
 export const battle = (id) => db.battles.find((b) => b.id === id) || null;
+export const killteam = (id) => db.killteams.find((k) => k.id === id) || null;
+
+/** Kill teams wearing a scheme. */
+export const killteamsUsing = (schemeId) => db.killteams.filter((k) => k.schemes.includes(schemeId));
+
+/** Painting progress across kill team operatives: one model each. */
+export function opStats(ops) {
+  const total = ops.length;
+  const based = ops.filter((o) => o.stage === LAST).length;
+  const steps = ops.reduce((n, o) => n + o.stage, 0);
+  return { total, based, pct: total ? steps / (total * LAST) : 0, done: total > 0 && based === total };
+}
 
 export function armyOfUnit(unitId) {
   return db.armies.find((a) => a.units.some((u) => u.id === unitId)) || null;

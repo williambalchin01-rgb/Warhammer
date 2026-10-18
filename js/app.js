@@ -2,7 +2,7 @@
 
 // Shown on the Data screen. Bump it with any deploy worth telling apart, so a
 // stale install can be spotted without guessing.
-const APP_VERSION = "2026-10-18";
+const APP_VERSION = "2026-10-18b";
 
 import * as S from "./store.js";
 import * as M from "./mfm.js";
@@ -13,6 +13,8 @@ import * as D from "./views-data.js";
 import * as PV from "./views-paints.js";
 import * as G from "./views-games.js";
 import * as Q from "./views-claude.js";
+import * as K from "./kt.js";
+import * as KV from "./views-kt.js";
 
 const TABS = [
   ["tab-collection", "armies-view"],
@@ -36,6 +38,8 @@ function refresh() {
   PV.renderScheme();
   PV.renderRack();
   PV.renderShop();
+  KV.renderKillteam();
+  KV.renderOperative();
   G.renderGames();
   D.renderBackupNote();
   el("note").hidden = S.storageOK;
@@ -52,11 +56,16 @@ async function start() {
   // Warm every faction the collection references so the views can cost units
   // synchronously. Missing data degrades to "no points", never to a crash.
   await M.ensure(S.db.armies.map((a) => a.faction));
+  await K.ensure(S.db.killteams.map((k) => k.team));
 
   C.init(refresh);
   L.init(refresh);
   D.init(refresh);
-  PV.init(refresh, (unitId) => C.openUnitById(unitId));
+  PV.init(refresh, (unitId) => C.openUnitById(unitId), (id) => KV.openKillteam(id));
+  KV.init(refresh, {
+    openScheme: PV.openScheme, newScheme: PV.newScheme,
+    askClaude: Q.askKt, logGame: G.logGame,
+  });
   G.init(refresh);
   Q.init(refresh);
   initPicker();
@@ -65,6 +74,7 @@ async function start() {
   C.onSchemes(PV.openScheme, PV.newScheme);
   L.onJumpToUnit((u) => C.openUnitById(u.id));
   L.onListActions(Q.ask, G.logGame);
+  C.onKillteams({ rows: KV.renderKillteamRows, create: KV.newKillteam, remove: KV.deleteKillteam });
 
   for (const [id, view] of TABS) el(id).addEventListener("click", () => tab(view));
 

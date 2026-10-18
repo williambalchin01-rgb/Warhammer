@@ -41,7 +41,7 @@ async function pickOption(label) {
 async function toRoot() {
   for (let i = 0; i < 4; i++) {
     if (await p.evaluate(() => !document.getElementById("tabs").hidden)) return;
-    for (const sel of ["#unit-back", "#units-back", "#list-back", "#scheme-back", "#rack-back", "#shop-back", "#claude-back"]) {
+    for (const sel of ["#op-back", "#unit-back", "#units-back", "#kt-back", "#list-back", "#scheme-back", "#rack-back", "#shop-back", "#claude-back"]) {
       const b = vis(sel);
       if (await b.count()) { await b.click(); break; }
     }
@@ -67,8 +67,8 @@ await reload();
 
 await step("migrates schema-1 data to the current schema in place", async () => {
   const d = await db();
-  assert(d.schema === 3, "schema " + d.schema);
-  for (const k of ["lists", "paints", "schemes", "battles"]) assert(Array.isArray(d[k]) && !d[k].length, k);
+  assert(d.schema === 4, "schema " + d.schema);
+  for (const k of ["lists", "killteams", "paints", "schemes", "battles"]) assert(Array.isArray(d[k]) && !d[k].length, k);
   assert(d.armies[0].faction === null && d.armies[0].units[0].sheet === null, "defaults");
   assert(JSON.stringify(d.armies[0].units[0].schemes) === "[]", "unit schemes");
   assert(d.armies[0].units[0].models.join() === "5,5,5,0,0", "paint progress kept");
@@ -444,6 +444,119 @@ await step("copies the prompt and opens Claude", async () => {
   assert((await clipboard()) === t, "copy and open");
 });
 
+// ---- kill teams -------------------------------------------------------------------
+
+await step("creates a kill team from the Armies tab", async () => {
+  await tab("collection");
+  await p.click("#armies-add");
+  await pickOption("Kill team");
+  await on("kt-form-view");
+  assert(await p.isDisabled("#ktf-save"), "save enabled before a team");
+  await p.click("#ktf-team");
+  await pickOption("Kasrkin");
+  await on("kt-form-view");
+  assert((await p.inputValue("#ktf-name")) === "Kasrkin", "name not defaulted");
+  await p.fill("#ktf-name", "Cadian Kasrkin");
+  await p.click("#ktf-save");
+  await on("kt-view");
+  assert((await text("#kt-title")) === "Cadian Kasrkin", await text("#kt-title"));
+  assert((await text("#kt-composition")) === "Leader + 9 operatives", await text("#kt-composition"));
+});
+
+async function addOp(name) {
+  await p.click("#kt-add");
+  await pickOption(name);
+  await on("kt-view");
+}
+
+await step("adds operatives, leader first, and warns on roster limits", async () => {
+  await addOp("Combat Medic");
+  await addOp("Sergeant");
+  await addOp("Combat Medic");
+  const names = await p.locator("#kt-rows .row-name").allTextContents();
+  assert(names[0] === "Sergeant", "leader not first: " + names.join());
+  const w = await text("#kt-warn");
+  assert(w.includes("2 \u00D7 Combat Medic; the limit is 1.") && w.includes("2 of 9 operatives chosen."), w);
+  await p.click("#kt-edit");
+  accept();
+  await vis("#kt-rows .delete").last().click();
+  await p.click("#kt-edit");
+  assert(!(await text("#kt-warn")).includes("Combat Medic"), "limit warning stayed");
+});
+
+await step("shows the datacard and switches weapon options", async () => {
+  await vis("#kt-rows .row-main").filter({ hasText: "Sergeant" }).click();
+  await on("op-view");
+  const stats = await p.locator("#op-stats .stat-v").allTextContents();
+  assert(stats.join("|") === '3|6"|4+|9', stats.join("|"));
+  let ws = await p.locator("#op-weapons .wpn-name").allTextContents();
+  assert(ws.some((x) => x.includes("Power weapon")) && ws.some((x) => x.includes("Bolt pistol")), ws.join());
+  assert((await text("#op-abilities")).includes("Lethal x+"), "weapon rule glossary missing");
+  await vis("#op-options .chip-btn").first().click();
+  await pickOption("Plasma pistol; chainsword");
+  await on("op-view");
+  ws = await p.locator("#op-weapons .wpn-name").allTextContents();
+  assert(ws.some((x) => x.includes("Chainsword")) && !ws.some((x) => x.includes("Power weapon")), ws.join());
+  assert((await text("#op-abilities")).includes("Veteran Leadership"), "abilities missing");
+});
+
+await step("tracks painting per operative and renames", async () => {
+  await vis("#op-stage .stage-pick").filter({ hasText: "Based" }).click();
+  p.once("dialog", (d) => d.accept("Sergeant Varro"));
+  await p.click("#op-rename");
+  assert((await text("#op-title")) === "Sergeant Varro", await text("#op-title"));
+  await p.click("#op-back");
+  await on("kt-view");
+  assert((await text("#kt-sub")).includes("1 of 2 painted"), await text("#kt-sub"));
+  await p.click("#kt-back");
+  assert((await text("#killteam-rows")).includes("1 painted"), await text("#killteam-rows"));
+  assert(!(await p.locator("#kt-heading").isHidden()), "kill teams heading");
+});
+
+await step("a kill team wears a paint scheme", async () => {
+  await vis("#killteam-rows .row-main").first().click();
+  await on("kt-view");
+  await vis("#kt-schemes .chip-btn").last().click();
+  await pickOption("Gold trim");
+  await on("kt-view");
+  await vis("#kt-schemes .chip-btn").filter({ hasText: "Gold trim" }).click();
+  await on("scheme-view");
+  assert((await text("#scheme-used")).includes("Cadian Kasrkin"), "kill team missing from used by");
+  assert((await text("#scheme-sub")).includes("1 kill team"), await text("#scheme-sub"));
+  await p.click("#scheme-back");
+  await on("kt-view");
+});
+
+await step("logs a game with a kill team", async () => {
+  await p.click("#kt-log");
+  await on("battle-form-view");
+  assert((await text("#battlef-list")) === "Cadian Kasrkin", "kill team not prefilled");
+  await p.click('#battlef-result button[data-r="W"]');
+  await p.fill("#battlef-opp", "Wyrmblade");
+  await p.fill("#battlef-worked", "Medic kept the gunner alive");
+  await p.click("#battlef-save");
+  await on("kt-view");
+  assert((await text("#kt-record")).includes("1W 0L 0D"), await text("#kt-record"));
+  await tab("games");
+  assert((await text("#games-rows")).includes("Cadian Kasrkin"), await text("#games-rows"));
+});
+
+await step("Ask Claude for a kill team carries the real datacards", async () => {
+  await tab("collection");
+  await vis("#killteam-rows .row-main").first().click();
+  await p.click("#kt-ask");
+  await pickOption("How should I play this kill team?");
+  await on("claude-view");
+  const t = await p.inputValue("#claude-text");
+  for (const want of ["Kill Team (2024 edition)", "Kill team: Cadian Kasrkin (Kasrkin)", "Skill at Arms:",
+    'Sergeant Varro [Sergeant]: APL 3, Move 6", Save 4+, Wounds 9.', "Chainsword (", "Painted.",
+    "Veteran Leadership:", "vs Wyrmblade", "Ploys and equipment aren't included"]) {
+    assert(t.includes(want), "missing: " + want);
+  }
+  await p.click("#claude-back");
+  await on("kt-view");
+});
+
 // ---- backup ------------------------------------------------------------------------
 
 await step("a full backup round-trips everything, photos included", async () => {
@@ -466,12 +579,29 @@ await step("a full backup round-trips everything, photos included", async () => 
   await p.click("#data-restore");
   await on("armies-view");
   const d = await db();
-  assert(d.schemes.length === 2 && d.paints.length === 4 && d.battles.length === 1 && d.lists.length === 1, JSON.stringify({
-    s: d.schemes.length, p: d.paints.length, b: d.battles.length, l: d.lists.length }));
-  assert(d.battles[0].listId === d.lists[0].id, "battle lost its list");
+  assert(d.schemes.length === 2 && d.paints.length === 4 && d.battles.length === 2 && d.lists.length === 1 &&
+    d.killteams.length === 1, JSON.stringify({ s: d.schemes.length, p: d.paints.length, b: d.battles.length,
+    l: d.lists.length, k: d.killteams.length }));
+  assert(d.battles.some((b) => b.listId === d.lists[0].id), "battle lost its list");
+  assert(d.battles.some((b) => b.ktId === d.killteams[0].id), "battle lost its kill team");
+  const k = d.killteams[0];
+  assert(k.operatives.length === 2 && k.operatives.some((o) => o.name === "Sergeant Varro" && o.stage === 5 &&
+    o.choices.Weapons === "Plasma pistol; chainsword"), JSON.stringify(k.operatives));
   await tab("paints");
   await vis(".row-main").filter({ hasText: "Ultramarines armour" }).click();
   await p.waitForFunction(() => !document.getElementById("scheme-photo-img").hidden);
+});
+
+await step("deleting a kill team keeps its games, by name", async () => {
+  await tab("collection");
+  await p.click("#armies-edit");
+  accept();
+  await vis("#killteam-rows .delete").first().click();
+  await p.click("#armies-edit");
+  assert((await p.locator("#killteam-rows .row").count()) === 0, "not deleted");
+  await tab("games");
+  assert((await text("#games-rows")).includes("Cadian Kasrkin"), await text("#games-rows"));
+  assert((await db()).battles.every((b) => b.ktId === null), "dangling kill team id");
 });
 
 await step("a schema-2 backup still restores", async () => {
@@ -485,7 +615,7 @@ await step("a schema-2 backup still restores", async () => {
   await p.click("#data-restore");
   await on("armies-view");
   const d = await db();
-  assert(d.schema === 3 && d.armies[0].name === "Legacy" && d.lists[0].id === "l", JSON.stringify(d).slice(0, 200));
+  assert(d.schema === 4 && d.armies[0].name === "Legacy" && d.lists[0].id === "l", JSON.stringify(d).slice(0, 200));
   assert(d.schemes.length === 0 && d.battles.length === 0, "stale data survived");
 });
 
