@@ -13,6 +13,7 @@
 <title>Painting</title>
 <style>
   :root{
+    color-scheme:dark;
     --ground:#151C24; --surface:#1E2831; --line:#2C3945;
     --ink:#E6EBEF; --muted:#6C7A87; --done:#4FA88B; --done-rgb:79,168,139;
     --today:#E0A458; --danger:#C4634F; --radius:10px;
@@ -47,7 +48,7 @@
   .back{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:4px 0;text-align:left}
 
   .tabs{display:flex;gap:6px;margin-top:14px;background:var(--surface);border-radius:var(--radius);padding:4px}
-  .tab{flex:1;padding:9px 8px;border-radius:7px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .tab{flex:1;min-width:0;padding:9px 4px;border-radius:7px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tab[aria-pressed="true"]{background:var(--line);color:var(--ink)}
 
   .chip-btn{
@@ -122,14 +123,67 @@
   .hint{margin-top:12px;font-size:13px;color:var(--muted)}
   .note{margin-top:24px;font-size:12px;color:var(--muted);text-align:center}
   .note-link{font-size:12px;letter-spacing:.06em;color:var(--muted);text-decoration:underline;text-underline-offset:3px;padding:6px}
+  .field textarea.prose{font-family:inherit}
+  .field .check{display:flex;gap:12px;align-items:center;margin:0;font-size:16px;letter-spacing:0;text-transform:none;color:var(--ink)}
+  .field .check input{width:22px;height:22px;padding:0;margin:0;accent-color:var(--done)}
+
+  .section{margin-top:16px}
+  .btn{display:block;width:100%;margin-top:10px;padding:13px 16px;border:1px solid var(--line);border-radius:var(--radius);
+       background:var(--surface);color:var(--ink);font-size:15px;text-align:center;text-decoration:none}
+  .btn:disabled{color:var(--line);cursor:default}
+  .primary-btn{background:var(--done);border-color:var(--done);color:#0C1813;font-weight:600}
+  .primary-btn:disabled{background:var(--surface);border-color:var(--line);color:var(--line)}
+  .danger-btn{color:var(--danger);margin-top:36px}
+  .danger-text{color:var(--danger)}
+  .action-strip{margin-top:18px}
+  .empty.small{padding:20px 4px}
+  .visually-hidden{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+
+  .steps{list-style:none;margin:0;padding:0}
+  .step{display:flex;align-items:stretch;background:var(--surface);border-radius:var(--radius);margin-top:8px}
+  .step-n{flex:none;width:34px;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line);
+          color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+  .step-main{flex:1;min-width:0;padding:11px 12px;text-align:left}
+  .step-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+  .step-stage{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--done)}
+  .step-paint{font-size:16px;font-weight:500;overflow-wrap:anywhere}
+  .step-sub{margin-top:4px;font-size:12px;letter-spacing:.04em;color:var(--muted);overflow-wrap:anywhere}
+  .step-paint.none{font-weight:400;color:var(--muted)}
+  .step-buy{color:var(--today)}
+  .step-ctl{display:flex;align-items:center;gap:2px;padding-right:6px}
+  .step-btn{width:34px;height:34px;border-radius:6px;color:var(--muted);font-size:17px}
+  .step-btn:disabled{color:var(--line);cursor:default}
+  .step-btn.danger{color:var(--danger);font-size:20px}
+
+  .photo{margin-top:16px}
+  .photo img{display:block;width:100%;max-height:360px;object-fit:cover;border-radius:var(--radius);background:var(--surface)}
+  .photo-add{display:block;padding:26px 14px;border:1px dashed var(--line);border-radius:var(--radius);
+             color:var(--muted);font-size:14px;text-align:center;cursor:pointer}
+  .photo-actions{display:flex;gap:18px;justify-content:flex-end;margin-top:8px}
+  .photo-actions label{cursor:pointer}
+  .scheme-note{margin:14px 2px 0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+
+  .got{flex:none;margin-right:12px;padding:8px 12px;border:1px solid var(--done);border-radius:999px;
+       color:var(--done);font-size:12px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+
+  .seg{display:flex;gap:6px;padding:4px;border-radius:var(--radius);background:var(--surface)}
+  .seg button{flex:1;padding:11px 6px;border-radius:7px;color:var(--muted);font-size:15px}
+  .seg button[aria-pressed="true"]{color:var(--ink);background:var(--line)}
+  .seg button[data-r="W"][aria-pressed="true"]{background:rgba(var(--done-rgb),.3)}
+  .seg button[data-r="L"][aria-pressed="true"]{background:rgba(196,99,79,.32)}
+  .score{display:flex;gap:10px;align-items:center}
+  .score input{flex:1;min-width:0}
+  .score span{color:var(--muted)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 
 <nav class="tabs" id="tabs">
-  <button class="tab" id="tab-collection" aria-pressed="true">Collection</button>
+  <button class="tab" id="tab-collection" aria-pressed="true">Armies</button>
   <button class="tab" id="tab-lists" aria-pressed="false">Lists</button>
+  <button class="tab" id="tab-paints" aria-pressed="false">Paints</button>
+  <button class="tab" id="tab-games" aria-pressed="false">Games</button>
 </nav>
 
 <main id="armies-view">
@@ -180,6 +234,10 @@
     </div>
   </div>
   <p class="warn" id="unit-warn" hidden></p>
+  <div class="section">
+    <div class="stage-name">Paint schemes</div>
+    <div class="chip-strip" id="unit-schemes"></div>
+  </div>
   <div id="stages"></div>
   <p class="hint" id="unit-hint"></p>
 </main>
@@ -218,6 +276,106 @@
   <ul class="rows" id="list-rows"></ul>
   <div class="empty" id="list-empty" hidden></div>
   <div class="summary" id="list-summary" hidden></div>
+  <p class="summary-line" id="list-record" hidden></p>
+  <div class="action-strip">
+    <button class="btn primary-btn" id="list-ask">Ask Claude about this list</button>
+    <button class="btn" id="list-log">Log a game with this list</button>
+  </div>
+</main>
+
+<main id="paints-view" hidden>
+  <div class="bar">
+    <div class="bar-left">
+      <div class="eyebrow">Paints</div>
+      <div class="sub" id="paints-sub"></div>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="paints-add">Add</button>
+    </div>
+  </div>
+  <ul class="rows" id="paints-nav"></ul>
+  <div class="group" id="paints-heading">Schemes</div>
+  <ul class="rows" id="paints-rows"></ul>
+  <div class="empty" id="paints-empty" hidden></div>
+</main>
+
+<main id="scheme-view" hidden>
+  <div class="bar">
+    <div class="bar-left">
+      <button class="back" id="scheme-back">&larr; <span id="scheme-back-label"></span></button>
+      <div class="title" id="scheme-title"></div>
+      <div class="sub" id="scheme-sub"></div>
+      <button class="chip-btn" id="scheme-details">Edit details</button>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="scheme-edit" aria-pressed="false">Edit</button>
+      <button class="bar-btn" id="scheme-add">Add</button>
+    </div>
+  </div>
+  <div class="photo" id="scheme-photo">
+    <img id="scheme-photo-img" alt="Reference photo of a model in this scheme" hidden>
+    <label class="photo-add" id="scheme-photo-add" for="scheme-photo-input">Add a photo of a finished model</label>
+    <div class="photo-actions" id="scheme-photo-actions" hidden>
+      <label class="bar-btn" id="scheme-photo-change" for="scheme-photo-input">Change photo</label>
+      <button class="bar-btn danger-text" id="scheme-photo-remove">Remove</button>
+    </div>
+    <input class="visually-hidden" type="file" id="scheme-photo-input" accept="image/*" tabindex="-1">
+    <p class="hint" id="scheme-photo-status"></p>
+  </div>
+  <p class="scheme-note" id="scheme-note" hidden></p>
+  <div class="group">Recipe</div>
+  <ol class="steps" id="scheme-steps"></ol>
+  <div class="empty small" id="scheme-steps-empty"><p>No steps yet. Add them in the order you paint them.</p></div>
+  <div class="group">Used by</div>
+  <ul class="rows" id="scheme-used"></ul>
+  <p class="hint" id="scheme-used-empty">Not linked to any units yet.</p>
+  <button class="btn" id="scheme-link">Link to units</button>
+</main>
+
+<main id="rack-view" hidden>
+  <div class="bar">
+    <div class="bar-left">
+      <button class="back" id="rack-back">&larr; Paints</button>
+      <div class="title">Paint rack</div>
+      <div class="sub" id="rack-sub"></div>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="rack-add">Add</button>
+    </div>
+  </div>
+  <input class="search" id="rack-search" type="search" placeholder="Search paints" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <ul class="rows" id="rack-rows"></ul>
+  <div class="empty" id="rack-empty" hidden></div>
+</main>
+
+<main id="shop-view" hidden>
+  <div class="bar">
+    <div class="bar-left">
+      <button class="back" id="shop-back">&larr; Paints</button>
+      <div class="title">Shopping list</div>
+      <div class="sub" id="shop-sub"></div>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="shop-copy">Copy</button>
+    </div>
+  </div>
+  <ul class="rows" id="shop-rows"></ul>
+  <div class="empty" id="shop-empty" hidden></div>
+  <p class="hint" id="shop-status"></p>
+</main>
+
+<main id="games-view" hidden>
+  <div class="bar">
+    <div class="bar-left">
+      <div class="eyebrow">Games</div>
+      <div class="sub" id="games-sub"></div>
+    </div>
+    <div class="actions">
+      <button class="bar-btn" id="games-add">Add</button>
+    </div>
+  </div>
+  <ul class="rows" id="games-rows"></ul>
+  <div class="empty" id="games-empty" hidden></div>
 </main>
 
 <section id="add-army-view" hidden>
@@ -276,6 +434,156 @@
     <label for="list-points">Battle size</label>
     <input id="list-points" type="number" inputmode="numeric" min="0" max="20000" step="5" value="2000" enterkeyhint="done">
   </div>
+</section>
+
+<section id="scheme-form-view" hidden>
+  <div class="bar">
+    <div class="bar-left"><div class="eyebrow" id="schemef-title">New scheme</div></div>
+    <div class="actions">
+      <button class="bar-btn" id="schemef-cancel">Cancel</button>
+      <button class="bar-btn primary" id="schemef-save" disabled>Save</button>
+    </div>
+  </div>
+  <div class="field">
+    <label for="schemef-name">Name</label>
+    <input id="schemef-name" type="text" placeholder="Ultramarines armour" maxlength="40" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="schemef-note">Notes</label>
+    <textarea id="schemef-note" class="prose" rows="4" maxlength="600" placeholder="Anything for the whole scheme: thinning, brushes, which areas to do first"></textarea>
+  </div>
+  <button class="btn danger-btn" id="schemef-delete" hidden>Delete scheme</button>
+</section>
+
+<section id="step-form-view" hidden>
+  <div class="bar">
+    <div class="bar-left"><div class="eyebrow" id="stepf-title">Add step</div></div>
+    <div class="actions">
+      <button class="bar-btn" id="stepf-cancel">Cancel</button>
+      <button class="bar-btn primary" id="stepf-save">Save</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Stage</label>
+    <button class="chip-btn" id="stepf-stage"></button>
+  </div>
+  <div class="field">
+    <label>Paint</label>
+    <button class="chip-btn" id="stepf-paint"></button>
+  </div>
+  <div class="field">
+    <label for="stepf-area">Area</label>
+    <input id="stepf-area" type="text" list="area-list" placeholder="Armour" maxlength="30" autocomplete="off">
+    <datalist id="area-list"></datalist>
+  </div>
+  <div class="field">
+    <label for="stepf-note">Note</label>
+    <input id="stepf-note" type="text" placeholder="Thinned 2:1, recesses only" maxlength="160" autocomplete="off">
+  </div>
+</section>
+
+<section id="paint-form-view" hidden>
+  <div class="bar">
+    <div class="bar-left"><div class="eyebrow" id="paintf-title">Add paint</div></div>
+    <div class="actions">
+      <button class="bar-btn" id="paintf-cancel">Cancel</button>
+      <button class="bar-btn primary" id="paintf-save" disabled>Save</button>
+    </div>
+  </div>
+  <div class="field">
+    <label for="paintf-name">Name</label>
+    <input id="paintf-name" type="text" placeholder="Macragge Blue" maxlength="60" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="paintf-brand">Brand</label>
+    <input id="paintf-brand" type="text" list="brand-list" placeholder="Citadel" maxlength="30" autocomplete="off">
+    <datalist id="brand-list"></datalist>
+  </div>
+  <div class="field">
+    <label>Type</label>
+    <button class="chip-btn" id="paintf-type"></button>
+  </div>
+  <div class="field">
+    <label class="check"><input type="checkbox" id="paintf-owned" checked> I own this paint</label>
+    <p class="hint">Untick it to put the paint on your shopping list.</p>
+  </div>
+  <div class="field">
+    <label for="paintf-note">Note</label>
+    <input id="paintf-note" type="text" placeholder="Running low" maxlength="120" autocomplete="off">
+  </div>
+  <button class="btn danger-btn" id="paintf-delete" hidden>Delete paint</button>
+</section>
+
+<section id="battle-form-view" hidden>
+  <div class="bar">
+    <div class="bar-left"><div class="eyebrow" id="battlef-title">Log a game</div></div>
+    <div class="actions">
+      <button class="bar-btn" id="battlef-cancel">Cancel</button>
+      <button class="bar-btn primary" id="battlef-save" disabled>Save</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Result</label>
+    <div class="seg" id="battlef-result">
+      <button data-r="W" aria-pressed="false">Win</button>
+      <button data-r="D" aria-pressed="false">Draw</button>
+      <button data-r="L" aria-pressed="false">Loss</button>
+    </div>
+  </div>
+  <div class="field">
+    <label for="battlef-date">Date</label>
+    <input id="battlef-date" type="date">
+  </div>
+  <div class="field">
+    <label for="battlef-for">Score</label>
+    <div class="score">
+      <input id="battlef-for" type="number" inputmode="numeric" min="0" max="999" placeholder="You" aria-label="Your score">
+      <span>&ndash;</span>
+      <input id="battlef-against" type="number" inputmode="numeric" min="0" max="999" placeholder="Them" aria-label="Their score">
+    </div>
+  </div>
+  <div class="field">
+    <label for="battlef-opp">Opponent</label>
+    <input id="battlef-opp" type="text" list="faction-list" placeholder="Necrons" maxlength="40" autocomplete="off">
+    <datalist id="faction-list"></datalist>
+  </div>
+  <div class="field">
+    <label>Your list</label>
+    <button class="chip-btn" id="battlef-list"></button>
+  </div>
+  <div class="field">
+    <label for="battlef-mission">Mission</label>
+    <input id="battlef-mission" type="text" placeholder="Take and Hold" maxlength="60" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="battlef-worked">What worked</label>
+    <textarea id="battlef-worked" class="prose" rows="3" maxlength="1000" placeholder="Units that pulled their weight, plays that paid off"></textarea>
+  </div>
+  <div class="field">
+    <label for="battlef-didnt">What didn&rsquo;t</label>
+    <textarea id="battlef-didnt" class="prose" rows="3" maxlength="1000" placeholder="Mistakes, units that underperformed, what you&rsquo;d change"></textarea>
+  </div>
+  <button class="btn danger-btn" id="battlef-delete" hidden>Delete game</button>
+</section>
+
+<section id="claude-view" hidden>
+  <div class="bar">
+    <div class="bar-left">
+      <button class="back" id="claude-back">&larr; <span id="claude-back-label"></span></button>
+      <div class="title">Ask Claude</div>
+      <div class="sub" id="claude-sub"></div>
+    </div>
+  </div>
+  <div class="field">
+    <label for="claude-text">Prompt</label>
+    <textarea id="claude-text" class="prose" rows="14" spellcheck="false"></textarea>
+    <p class="hint">Edit it if you like. Nothing is sent from this app &mdash; you paste it into Claude yourself, so your subscription covers it.</p>
+  </div>
+  <div class="action-strip">
+    <a class="btn primary-btn" id="claude-open" target="_blank" rel="noopener">Copy and open Claude</a>
+    <button class="btn" id="claude-copy">Copy only</button>
+  </div>
+  <p class="hint" id="claude-status"></p>
 </section>
 
 <section id="picker-view" hidden>

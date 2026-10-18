@@ -3,6 +3,7 @@
 // between the user and silently losing the lot.
 
 import * as S from "./store.js";
+import * as P from "./photos.js";
 import { el, show, plural } from "./ui.js";
 
 let refresh = () => {};
@@ -15,7 +16,7 @@ export function init(onChange) {
 const status = (msg) => { el("data-status").textContent = msg; };
 
 export function renderBackupNote() {
-  el("backup-line").hidden = S.db.armies.length === 0;
+  el("backup-line").hidden = S.isEmpty();
   const when = S.backupAt();
   const d = when ? new Date(when) : null;
   el("backup-open").textContent = !d || isNaN(d.getTime())
@@ -23,13 +24,23 @@ export function renderBackupNote() {
     : "Last backup " + d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function openData() {
-  el("data-out").value = S.exportJSON();
+export async function openData() {
+  const out = el("data-out");
+  out.value = "";
   el("data-in").value = "";
-  status(S.db.armies.length
-    ? "Copy this somewhere safe — a note, an email to yourself, a file."
-    : "Nothing to back up yet.");
+  el("data-copy").disabled = el("data-download").disabled = true;
+  status("Preparing backup\u2026");
   show("data-view");
+
+  // Photos are folded in so a restore brings scheme references back too.
+  const photos = await P.exportAll(new Set(S.db.schemes.map((sc) => sc.id)));
+  out.value = S.exportData({ photos });
+  el("data-copy").disabled = el("data-download").disabled = false;
+  const n = Object.keys(photos).length;
+  status(S.isEmpty()
+    ? "Nothing to back up yet."
+    : "Copy this somewhere safe \u2014 a note, an email to yourself, a file." +
+      (n ? " Includes " + plural(n, "photo") + "." : ""));
 }
 
 function copy() {
@@ -71,7 +82,7 @@ function download() {
   }
 }
 
-function restore() {
+async function restore() {
   const raw = el("data-in").value.trim();
   if (!raw) { status("Paste a backup into the Restore box first."); return; }
   let parsed;
@@ -84,16 +95,35 @@ function restore() {
   const next = S.migrate(parsed);
   if (!next) { status("That isn’t a Painting backup."); return; }
 
+  const schemeIds = new Set(next.schemes.map((sc) => sc.id));
+  const photos = [];
+  if (parsed && parsed.photos && typeof parsed.photos === "object") {
+    for (const [id, data] of Object.entries(parsed.photos)) {
+      const blob = schemeIds.has(id) ? P.fromDataURL(data) : null;
+      if (blob) photos.push([id, blob]);
+    }
+  }
+
   const models = next.armies.reduce((n, a) => n + a.units.reduce((m, u) => m + u.models.length, 0), 0);
   const summary = [
     plural(next.armies.length, "army", "armies"),
     plural(models, "model"),
     next.lists.length ? plural(next.lists.length, "list") : null,
+    next.schemes.length ? plural(next.schemes.length, "scheme") : null,
+    next.paints.length ? plural(next.paints.length, "paint") : null,
+    next.battles.length ? plural(next.battles.length, "game") : null,
+    photos.length ? plural(photos.length, "photo") : null,
   ].filter(Boolean).join(", ");
 
   if (!confirm("Replace everything with this backup?\n\n" + summary +
                "\n\nAnything currently in the app will be lost.")) return;
   S.replaceAll(next);
+  try {
+    await P.clear();
+    for (const [id, blob] of photos) await P.put(id, blob);
+  } catch (e) {
+    status("Restored, but photos couldn\u2019t be saved in this browser.");
+  }
   refresh();
   show("armies-view");
 }

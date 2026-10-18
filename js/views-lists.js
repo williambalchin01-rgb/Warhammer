@@ -40,7 +40,7 @@ function resolve(l) {
  * two names distinct: listCost also returns `rows`, and spreading it over a key
  * of the same name silently replaced the entries with the costed lines.
  */
-function costing(l) {
+export function costing(l) {
   const entries = resolve(l);
   const c = M.listCost(facOf(l), entries.map((r) => ({
     unit: r.unit, enhancement: r.entry.enhancement, detachment: l.detachment,
@@ -79,6 +79,7 @@ export function renderLists() {
       onDelete: editEntries ? () => {
         if (!confirm("Delete the list “" + l.name + "”?")) return;
         S.db.lists = S.db.lists.filter((x) => x.id !== l.id);
+        for (const b of S.db.battles) if (b.listId === l.id) b.listId = null;
         S.save(); refresh();
       } : null,
     }));
@@ -191,10 +192,25 @@ export function renderList() {
       box.appendChild(ul);
     }
   }
+
+  // Games played with this list, and the two ways out of here: log another,
+  // or take the list to Claude for advice.
+  const games = S.db.battles.filter((b) => b.listId === l.id);
+  const rec = el("list-record");
+  rec.hidden = games.length === 0;
+  if (games.length) {
+    const r = S.record(games);
+    rec.textContent = "Record with this list: " + r.W + "W " + r.L + "L " + r.D + "D";
+  }
+  el("list-ask").disabled = entries.length === 0;
 }
 
 let jumpToUnit = () => {};
 export function onJumpToUnit(fn) { jumpToUnit = fn; }
+
+let askClaude = () => {};
+let logGame = () => {};
+export function onListActions(ask, log) { askClaude = ask; logGame = log; }
 const openUnitFromList = (u) => jumpToUnit(u);
 
 // ---- actions -------------------------------------------------------------
@@ -362,6 +378,8 @@ function wire() {
     renderList();
   });
   el("list-size").addEventListener("click", pickSize);
+  el("list-ask").addEventListener("click", () => askClaude(listId));
+  el("list-log").addEventListener("click", () => logGame({ listId, back: "list-view" }));
   el("list-detachment").addEventListener("click", pickDetachment);
 
   el("list-army-pick").addEventListener("click", () => {

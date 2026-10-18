@@ -1,6 +1,6 @@
 // Bump CACHE on every deploy. Navigation requests are network-first, so a stale
 // cache name no longer strands installed users on an old index.html.
-var CACHE = "painting-v7";
+var CACHE = "painting-v8";
 
 // The shell. Faction points files are deliberately absent: they are fetched on
 // demand and cached on first use, so installing does not pull 318 KB the user
@@ -9,6 +9,7 @@ var FILES = [
   "./", "./index.html", "./manifest.json",
   "./js/app.js", "./js/store.js", "./js/mfm.js", "./js/ui.js",
   "./js/views-collection.js", "./js/views-lists.js", "./js/views-data.js",
+  "./js/views-paints.js", "./js/views-games.js", "./js/views-claude.js", "./js/photos.js",
   "./data/factions.json",
   "./apple-touch-icon.png", "./icon-192.png", "./icon-512.png"
 ];

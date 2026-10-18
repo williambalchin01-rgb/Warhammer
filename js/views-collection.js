@@ -8,6 +8,23 @@ let armyId = null, unitId = null;
 let editArmies = false, editUnits = false, undoMode = false;
 let resizing = null;   // the unit being resized, when add-unit-view is reused
 let refresh = () => {};
+let openScheme = () => {};
+let newScheme = () => {};
+
+/** Paint-scheme screens live in another module; app.js wires them in. */
+export function onSchemes(open, create) {
+  openScheme = open;
+  newScheme = create;
+}
+
+/** Open a unit from elsewhere in the app (a scheme, a list's paint queue). */
+export function openUnitById(id) {
+  const a = S.armyOfUnit(id);
+  if (!a) return;
+  armyId = a.id;
+  renderUnits();
+  openUnit(id);
+}
 
 export function init(onChange) {
   refresh = onChange;
@@ -62,7 +79,9 @@ export function renderArmies() {
       onDelete: editArmies ? () => {
         if (!confirm("Delete “" + a.name + "” and all its units?")) return;
         S.db.armies = S.db.armies.filter((x) => x.id !== a.id);
-        S.db.lists = S.db.lists.filter((l) => l.armyId !== a.id);
+        const gone = new Set(S.db.lists.filter((l) => l.armyId === a.id).map((l) => l.id));
+        S.db.lists = S.db.lists.filter((l) => !gone.has(l.id));
+        for (const b of S.db.battles) if (gone.has(b.listId)) b.listId = null;
         S.save(); refresh();
       } : null,
     }));
@@ -163,6 +182,8 @@ export function renderUnit() {
     warn.hidden = true;
   }
 
+  renderUnitSchemes(u);
+
   el("unit-hint").textContent = undoMode
     ? "Tap a model to step it back one stage."
     : "Tap a model to advance it. Tap a stage's arrow to advance the whole group.";
@@ -207,6 +228,49 @@ export function renderUnit() {
       box.appendChild(chips);
     }
     wrap.appendChild(box);
+  });
+}
+
+function renderUnitSchemes(u) {
+  const strip = clear(el("unit-schemes"));
+  for (const id of u.schemes) {
+    const sc = S.scheme(id);
+    if (!sc) continue;
+    const b = make("button", "chip-btn", sc.name);
+    const missing = S.missingPaints(sc).length;
+    if (missing) b.title = missing + " paint" + (missing === 1 ? "" : "s") + " to buy";
+    b.addEventListener("click", () => openScheme(sc.id, { view: "unit-view", label: u.name }));
+    strip.appendChild(b);
+  }
+  const add = make("button", "chip-btn", u.schemes.length ? "+ Scheme" : "+ Link a paint scheme");
+  add.dataset.unset = "true";
+  add.addEventListener("click", () => linkScheme(u));
+  strip.appendChild(add);
+}
+
+function linkScheme(u) {
+  const options = [{ value: "__new", label: "New scheme\u2026", sub: "Create a recipe and link it to this unit" }]
+    .concat(S.db.schemes.map((sc) => {
+      const linked = u.schemes.includes(sc.id);
+      return {
+        value: sc.id, label: sc.name,
+        badge: linked ? "\u2713" : plural(sc.steps.length, "step"),
+        sub: linked ? "Linked \u2014 tap to unlink" : null,
+      };
+    }));
+  pick({
+    title: "Paint scheme",
+    back: "unit-view",
+    options,
+    onPick: (id) => {
+      if (id === "__new") { newScheme({ linkUnitId: u.id, back: { view: "unit-view", label: u.name } }); return; }
+      if (id) {
+        u.schemes = u.schemes.includes(id) ? u.schemes.filter((x) => x !== id) : u.schemes.concat(id);
+        S.save();
+      }
+      refresh();
+      show("unit-view");
+    },
   });
 }
 
@@ -363,6 +427,7 @@ function commitUnit() {
     a.units.push({
       id: S.uid(), name, sheet: editingUnitSheet,
       models: Array.from({ length: n }, () => 0),
+      schemes: [],
     });
   }
   resizing = null;

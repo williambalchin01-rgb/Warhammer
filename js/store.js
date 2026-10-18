@@ -5,14 +5,27 @@
 
 export const STAGES = ["Not started", "Assembled", "Primed", "Base colours", "Details", "Based"];
 export const LAST = STAGES.length - 1;
-export const SCHEMA = 2;
+export const SCHEMA = 3;
+
+export const PAINT_TYPES = [
+  "Base", "Layer", "Shade", "Contrast", "Speedpaint", "Dry", "Technical",
+  "Metallic", "Air", "Wash", "Ink", "Primer", "Other",
+];
+export const STEP_STAGES = [
+  "Prime", "Base", "Shade", "Wash", "Layer", "Highlight", "Edge highlight",
+  "Glaze", "Drybrush", "Contrast", "Detail", "Weathering", "Basing", "Varnish",
+];
 
 const KEY = "painting.v1";
 const BACKUP_KEY = "painting.v1.backup";
 const MAX_MODELS = 60;
 
 // Never reassigned, so importers always see current state.
-export const db = { schema: SCHEMA, armies: [], lists: [] };
+export const db = empty();
+
+function empty() {
+  return { schema: SCHEMA, armies: [], lists: [], paints: [], schemes: [], battles: [] };
+}
 
 export let storageOK = true;
 
@@ -24,19 +37,29 @@ export function uid() {
 }
 
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+const int = (v, lo, hi) => {
+  const n = parseInt(v, 10);
+  return isNaN(n) ? null : Math.max(lo, Math.min(hi, n));
+};
 
-// Rebuild untrusted data field by field rather than trusting its shape. Ids are
-// preserved where sound, because lists reference units by id.
-function cleanArmies(raw) {
-  if (!Array.isArray(raw) || raw.length > 200) return null;
+/**
+ * Keeps an id when it is sound and unseen, otherwise mints one. Ids must survive
+ * a load: lists point at units, battles at lists, units at schemes, steps at
+ * paints. One keeper per migration, shared across every collection.
+ */
+function keeper() {
   const seen = new Set();
-  const keepId = (id) => {
+  return (id) => {
     const ok = typeof id === "string" && id.length > 0 && id.length <= 64 && !seen.has(id);
     const out = ok ? id : uid();
     seen.add(out);
     return out;
   };
+}
 
+// Rebuild untrusted data field by field rather than trusting its shape.
+function cleanArmies(raw, schemeIds, keepId) {
+  if (!Array.isArray(raw) || raw.length > 200) return null;
   const armies = [];
   for (const a of raw) {
     if (!a || typeof a !== "object") return null;
@@ -54,14 +77,16 @@ function cleanArmies(raw) {
         if (isNaN(n)) return null;
         models.push(Math.max(0, Math.min(LAST, n)));
       }
-      units.push({ id: keepId(u.id), name: uname, sheet: str(u.sheet, 80) || null, models });
+      const schemes = (Array.isArray(u.schemes) ? u.schemes : [])
+        .filter((id, i, all) => schemeIds.has(id) && all.indexOf(id) === i);
+      units.push({ id: keepId(u.id), name: uname, sheet: str(u.sheet, 80) || null, models, schemes });
     }
     armies.push({ id: keepId(a.id), name, faction: str(a.faction, 40) || null, units });
   }
   return armies;
 }
 
-function cleanLists(raw, armies) {
+function cleanLists(raw, armies, keepId) {
   if (!Array.isArray(raw)) return [];
   const armyIds = new Set(armies.map((a) => a.id));
   const unitIds = new Set(armies.flatMap((a) => a.units.map((u) => u.id)));
@@ -74,9 +99,9 @@ function cleanLists(raw, armies) {
     const entries = (Array.isArray(l.entries) ? l.entries : [])
       .filter((e) => e && unitIds.has(e.unitId))
       .slice(0, 200)
-      .map((e) => ({ id: uid(), unitId: e.unitId, enhancement: str(e.enhancement, 80) || null }));
+      .map((e) => ({ id: keepId(e.id), unitId: e.unitId, enhancement: str(e.enhancement, 80) || null }));
     lists.push({
-      id: uid(),
+      id: keepId(l.id),
       armyId: l.armyId,
       name,
       size,
@@ -87,14 +112,87 @@ function cleanLists(raw, armies) {
   return lists;
 }
 
+function cleanPaints(raw, keepId) {
+  if (!Array.isArray(raw)) return [];
+  const paints = [];
+  for (const p of raw.slice(0, 2000)) {
+    if (!p || typeof p !== "object") continue;
+    const name = str(p.name, 60);
+    if (!name) continue;
+    paints.push({
+      id: keepId(p.id),
+      name,
+      brand: str(p.brand, 30),
+      type: PAINT_TYPES.includes(p.type) ? p.type : "Other",
+      owned: p.owned !== false,
+      note: str(p.note, 120),
+    });
+  }
+  return paints;
+}
+
+function cleanSchemes(raw, paintIds, keepId) {
+  if (!Array.isArray(raw)) return [];
+  const schemes = [];
+  for (const sc of raw.slice(0, 500)) {
+    if (!sc || typeof sc !== "object") continue;
+    const name = str(sc.name, 40);
+    if (!name) continue;
+    const steps = (Array.isArray(sc.steps) ? sc.steps : []).slice(0, 100)
+      .filter((st) => st && typeof st === "object")
+      .map((st) => ({
+        id: keepId(st.id),
+        area: str(st.area, 30),
+        stage: STEP_STAGES.includes(st.stage) ? st.stage : "Layer",
+        paintId: paintIds.has(st.paintId) ? st.paintId : null,
+        note: str(st.note, 160),
+      }));
+    schemes.push({ id: keepId(sc.id), name, note: str(sc.note, 600), steps });
+  }
+  return schemes;
+}
+
+function cleanBattles(raw, listIds, keepId) {
+  if (!Array.isArray(raw)) return [];
+  const battles = [];
+  for (const b of raw.slice(0, 2000)) {
+    if (!b || typeof b !== "object") continue;
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : null;
+    if (!date || !["W", "L", "D"].includes(b.result)) continue;
+    battles.push({
+      id: keepId(b.id),
+      date,
+      result: b.result,
+      scoreFor: int(b.scoreFor, 0, 999),
+      scoreAgainst: int(b.scoreAgainst, 0, 999),
+      listId: listIds.has(b.listId) ? b.listId : null,
+      // Names are snapshotted so a game still reads properly after its list or
+      // army is deleted.
+      listName: str(b.listName, 40),
+      armyName: str(b.armyName, 30),
+      opponent: str(b.opponent, 40),
+      mission: str(b.mission, 60),
+      worked: str(b.worked, 1000),
+      didnt: str(b.didnt, 1000),
+    });
+  }
+  return battles;
+}
+
 // Accepts any shape the app has ever written: a bare array (schema 1) or the
-// versioned envelope. Returns null if it isn't ours.
+// versioned envelope (2 onwards). Returns null if it isn't ours.
 export function migrate(raw) {
-  const env = Array.isArray(raw) ? { schema: 1, armies: raw, lists: [] } : raw;
+  const env = Array.isArray(raw) ? { schema: 1, armies: raw } : raw;
   if (!env || typeof env !== "object") return null;
-  const armies = cleanArmies(env.armies);
+  const keepId = keeper();
+  // Order matters: each collection is checked against the ones it points at.
+  const paints = cleanPaints(env.paints, keepId);
+  const schemes = cleanSchemes(env.schemes, new Set(paints.map((p) => p.id)), keepId);
+  const armies = cleanArmies(env.armies, new Set(schemes.map((sc) => sc.id)), keepId);
   if (!armies) return null;
-  return { schema: SCHEMA, armies, lists: cleanLists(env.lists, armies) };
+  const lists = cleanLists(env.lists, armies, keepId);
+  const battles = cleanBattles(env.battles, new Set(lists.map((l) => l.id)), keepId);
+  return { schema: SCHEMA, armies, lists, paints, schemes, battles };
 }
 
 export function load() {
@@ -115,7 +213,7 @@ export function load() {
   // Unreadable data is kept rather than overwritten: a later save would destroy
   // whatever is really in there, and the user may still be able to recover it.
   if (raw && !next) storageOK = false;
-  Object.assign(db, next || { schema: SCHEMA, armies: [], lists: [] });
+  Object.assign(db, next || empty());
 
   // Write the upgraded shape back at once. Migrating lazily would leave anyone
   // who opens the app and changes nothing sitting on the old schema.
@@ -131,15 +229,21 @@ export function save() {
 }
 
 export function replaceAll(next) {
-  db.schema = SCHEMA;
-  db.armies = next.armies;
-  db.lists = next.lists;
+  Object.assign(db, empty(), next, { schema: SCHEMA });
   save();
 }
 
-export function exportJSON() {
-  return JSON.stringify({ schema: SCHEMA, armies: db.armies, lists: db.lists });
+/** The stored model as backup JSON; photos are added by the caller. */
+export function exportData(extra) {
+  return JSON.stringify(Object.assign({
+    schema: SCHEMA,
+    armies: db.armies, lists: db.lists,
+    paints: db.paints, schemes: db.schemes, battles: db.battles,
+  }, extra || {}));
 }
+
+export const isEmpty = () =>
+  !db.armies.length && !db.paints.length && !db.schemes.length && !db.battles.length;
 
 export function backupAt() {
   try {
@@ -159,6 +263,36 @@ export function markBackup() {
 
 export const army = (id) => db.armies.find((a) => a.id === id) || null;
 export const list = (id) => db.lists.find((l) => l.id === id) || null;
+export const paint = (id) => db.paints.find((p) => p.id === id) || null;
+export const scheme = (id) => db.schemes.find((sc) => sc.id === id) || null;
+export const battle = (id) => db.battles.find((b) => b.id === id) || null;
+
+export function armyOfUnit(unitId) {
+  return db.armies.find((a) => a.units.some((u) => u.id === unitId)) || null;
+}
+
+/** Every unit, across armies, that uses a scheme. */
+export function unitsUsing(schemeId) {
+  const out = [];
+  for (const a of db.armies) for (const u of a.units) if (u.schemes.includes(schemeId)) out.push({ army: a, unit: u });
+  return out;
+}
+
+/** Paints a scheme calls for that are not on the rack yet, without repeats. */
+export function missingPaints(sc) {
+  const out = [];
+  for (const st of sc.steps) {
+    const p = paint(st.paintId);
+    if (p && !p.owned && !out.includes(p)) out.push(p);
+  }
+  return out;
+}
+
+export function record(battles) {
+  const r = { W: 0, L: 0, D: 0 };
+  for (const b of battles) r[b.result]++;
+  return r;
+}
 
 export function unit(id) {
   for (const a of db.armies) {

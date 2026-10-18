@@ -1,8 +1,8 @@
 # Painting
 
 An offline-first tracker for a Warhammer 40,000 collection: what you own, how
-far through painting it you are, what it costs in points, and which lists you
-can actually field.
+far through painting it you are, how you paint it, what it costs in points,
+which lists you can actually field, and how your games went.
 
 Installed to the home screen it runs as a standalone app and works with no
 connection. There is no account, no server and no sync — everything lives in
@@ -31,9 +31,28 @@ from the chosen detachment. Alongside the points total it shows how much of the
 list is fully based and which units are still to paint — a painting queue driven
 by what you intend to play.
 
-**Backup.** Everything sits in one `localStorage` key, and browsers evict
-storage from apps that go unused. The Data screen exports the collection as
-JSON and restores from a paste, and the army list shows when you last took a
+**Paint schemes.** A scheme is a reusable recipe ("Ultramarines armour"):
+ordered steps, each with a stage (base, shade, layer, highlight…), a paint, the
+area it goes on and a note, plus a reference photo of a finished model. Link a
+scheme to every unit that wears it and the recipe is one tap from the unit
+you're painting, which is what keeps an army consistent when it's painted over
+months. The **paint rack** holds the paints you own in any brand; a paint you
+don't own yet lands on the **shopping list**, along with which schemes need it.
+
+**Battle log.** Date, result, score, opponent, mission, and, the useful part,
+what worked and what didn't. Each list shows its record.
+
+**Ask Claude.** From any list, pick a question (game plan, list review,
+matchup, learn from my games, or your own) and the app builds a prompt from the
+list, detachment, points, painted state, spare units and recent games. It's
+copied and Claude opens; you paste it into a new chat. Nothing is sent from the
+app, so there's no API key and no extra cost. The prompt asks Claude to say
+when it isn't sure of a current rule rather than guess.
+
+**Backup.** The main data sits in one `localStorage` key and photos in
+IndexedDB, and browsers evict
+storage from apps that go unused. The Data screen exports everything, photos
+included, as JSON and restores from a paste, and the army list shows when you last took a
 backup. Take one.
 
 ## Points data
@@ -71,6 +90,15 @@ home-screen app, so testing an icon change means removing it from the home
 screen and re-adding it.
 `node tools/render-icons.mjs` to rewrite the three PNGs.
 
+Tests run in a real browser through Playwright and live in `tests/`:
+
+```sh
+npm test    # points arithmetic, end-to-end app flows, service worker updates
+```
+
+The test server serves modified files from memory when a test needs them, so
+a test run never edits the working tree.
+
 **Bump `CACHE` in `sw.js` whenever you change the shell.** `index.html` and the
 modules are served network-first so an update lands on the next launch, but the
 cache name is what clears the old copies out.
@@ -83,7 +111,9 @@ cache name is what clears the old copies out.
 | `js/store.js` | State, persistence, schema migration, backup |
 | `js/mfm.js` | Points data loading and the costing arithmetic |
 | `js/ui.js` | DOM helpers, view switching, the shared picker |
-| `js/views-*.js` | Collection, lists, and backup screens |
+| `js/photos.js` | Scheme photos in IndexedDB, downscaled on the way in |
+| `js/views-*.js` | Collection, lists, paints, games, Ask Claude, backup |
+| `tests/` | Browser and unit tests (`npm test`) |
 | `sw.js` | Service worker: network-first shell, cached data |
 | `tools/sync-mfm.py` | Regenerates `data/` from the Munitorum Field Manual |
 | `tools/icon-source.jpg` | Source art for the app icons |

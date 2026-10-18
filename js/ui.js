@@ -5,9 +5,15 @@ export const el = (id) => document.getElementById(id);
 export const VIEWS = [
   "armies-view", "units-view", "unit-view",
   "lists-view", "list-view",
+  "paints-view", "scheme-view", "rack-view", "shop-view",
+  "games-view",
   "add-army-view", "add-unit-view", "add-list-view",
-  "picker-view", "data-view",
+  "scheme-form-view", "step-form-view", "paint-form-view", "battle-form-view",
+  "claude-view", "picker-view", "data-view",
 ];
+
+/** The top-level screens, which carry the tab bar. */
+export const ROOTS = ["armies-view", "lists-view", "paints-view", "games-view"];
 
 let current = "armies-view";
 export const currentView = () => current;
@@ -15,7 +21,7 @@ export const currentView = () => current;
 export function show(name) {
   current = name;
   for (const v of VIEWS) el(v).hidden = v !== name;
-  el("tabs").hidden = !(name === "armies-view" || name === "lists-view");
+  el("tabs").hidden = !ROOTS.includes(name);
   window.scrollTo(0, 0);
 }
 

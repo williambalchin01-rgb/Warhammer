@@ -2,7 +2,7 @@
 
 // Shown on the Data screen. Bump it with any deploy worth telling apart, so a
 // stale install can be spotted without guessing.
-const APP_VERSION = "2026-09-19";
+const APP_VERSION = "2026-10-18";
 
 import * as S from "./store.js";
 import * as M from "./mfm.js";
@@ -10,6 +10,16 @@ import { el, show, initPicker } from "./ui.js";
 import * as C from "./views-collection.js";
 import * as L from "./views-lists.js";
 import * as D from "./views-data.js";
+import * as PV from "./views-paints.js";
+import * as G from "./views-games.js";
+import * as Q from "./views-claude.js";
+
+const TABS = [
+  ["tab-collection", "armies-view"],
+  ["tab-lists", "lists-view"],
+  ["tab-paints", "paints-view"],
+  ["tab-games", "games-view"],
+];
 
 /**
  * Re-render every screen, not just the visible one. Edits are committed from a
@@ -22,13 +32,17 @@ function refresh() {
   C.renderUnit();
   L.renderLists();
   L.renderList();
+  PV.renderPaints();
+  PV.renderScheme();
+  PV.renderRack();
+  PV.renderShop();
+  G.renderGames();
   D.renderBackupNote();
   el("note").hidden = S.storageOK;
 }
 
 function tab(name) {
-  el("tab-collection").setAttribute("aria-pressed", String(name === "armies-view"));
-  el("tab-lists").setAttribute("aria-pressed", String(name === "lists-view"));
+  for (const [id, view] of TABS) el(id).setAttribute("aria-pressed", String(view === name));
   show(name);
 }
 
@@ -42,19 +56,17 @@ async function start() {
   C.init(refresh);
   L.init(refresh);
   D.init(refresh);
+  PV.init(refresh, (unitId) => C.openUnitById(unitId));
+  G.init(refresh);
+  Q.init(refresh);
   initPicker();
 
-  L.onJumpToUnit((u) => {
-    for (const a of S.db.armies) {
-      if (a.units.some((x) => x.id === u.id)) {
-        C.openArmy(a.id);
-        break;
-      }
-    }
-  });
+  // Cross-screen jumps go through here so the view modules don't import each other.
+  C.onSchemes(PV.openScheme, PV.newScheme);
+  L.onJumpToUnit((u) => C.openUnitById(u.id));
+  L.onListActions(Q.ask, G.logGame);
 
-  el("tab-collection").addEventListener("click", () => tab("armies-view"));
-  el("tab-lists").addEventListener("click", () => tab("lists-view"));
+  for (const [id, view] of TABS) el(id).addEventListener("click", () => tab(view));
 
   refresh();
   tab("armies-view");

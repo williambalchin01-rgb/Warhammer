@@ -1,0 +1,9 @@
+{
+  "name": "painting",
+  "private": true,
+  "type": "module",
+  "description": "Offline-first Warhammer 40,000 collection, painting, list and battle tracker.",
+  "scripts": {
+    "test": "node tests/points.test.mjs && node tests/app.test.mjs && node tests/sw.test.mjs"
+  }
+}
